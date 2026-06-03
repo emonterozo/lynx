@@ -3,12 +3,15 @@ import 'package:hugeicons/hugeicons.dart';
 import 'package:isar/isar.dart';
 import 'package:intl/intl.dart';
 import 'package:lynx/data/models/budget.dart';
+import 'package:lynx/screens/credit_card_form.dart';
+import 'package:lynx/screens/wallet_form.dart';
 import '../core/enums/app_enums.dart';
 import '../core/theme.dart';
 import '../data/models/credit_card.dart';
 import '../data/models/transaction.dart';
 import '../data/models/wallet.dart';
 import '../widgets/wallet_card.dart';
+import 'budget_form.dart';
 
 final currencyFormatter = NumberFormat("#,##0.00", "en_PH");
 final DateFormat dateFormat = DateFormat('MMM dd, hh:mm a');
@@ -23,6 +26,21 @@ class HomeTab extends StatefulWidget {
 class _HomeTabState extends State<HomeTab> {
   final Isar _isar = Isar.getInstance()!;
 
+  void _navigateToWalletForm() {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => WalletForm()));
+  }
+
+  void _navigateToCreditCardForm() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => CreditCardForm()),
+    );
+  }
+
+  void _navigateToBudgetForm() {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => BudgetForm()));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -34,7 +52,9 @@ class _HomeTabState extends State<HomeTab> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               StreamBuilder<List<Wallet>>(
-                stream: _isar.wallets.where().watch(fireImmediately: true),
+                stream: _isar.wallets.where().sortByBalance().watch(
+                  fireImmediately: true,
+                ),
                 builder: (context, snapshot) {
                   final wallets = snapshot.data ?? [];
 
@@ -60,7 +80,7 @@ class _HomeTabState extends State<HomeTab> {
                                   ),
                                   const SizedBox(height: 8),
                                   const Text(
-                                    "No wallets found.",
+                                    "No wallets found",
                                     style: TextStyle(
                                       fontSize: 13,
                                       color: LynxTheme.mutedForeground,
@@ -68,7 +88,7 @@ class _HomeTabState extends State<HomeTab> {
                                     ),
                                   ),
                                   GestureDetector(
-                                    onTap: () {},
+                                    onTap: _navigateToWalletForm,
                                     child: Padding(
                                       padding: const EdgeInsets.only(top: 4.0),
                                       child: Text(
@@ -85,6 +105,7 @@ class _HomeTabState extends State<HomeTab> {
                               ),
                             )
                           : _horizontalList(
+                              isWallet: true,
                               itemCount: wallets.length,
                               itemBuilder: (index) => WalletCard(
                                 account: wallets[index],
@@ -97,7 +118,9 @@ class _HomeTabState extends State<HomeTab> {
               ),
               const SizedBox(height: 30),
               StreamBuilder<List<CreditCard>>(
-                stream: _isar.creditCards.where().watch(fireImmediately: true),
+                stream: _isar.creditCards.where().sortByBalanceDesc().watch(
+                  fireImmediately: true,
+                ),
                 builder: (context, snapshot) {
                   final creditCards = snapshot.data ?? [];
 
@@ -123,7 +146,7 @@ class _HomeTabState extends State<HomeTab> {
                                   ),
                                   const SizedBox(height: 8),
                                   const Text(
-                                    "No credit cards found.",
+                                    "No credit cards found",
                                     style: TextStyle(
                                       fontSize: 13,
                                       color: LynxTheme.mutedForeground,
@@ -131,7 +154,7 @@ class _HomeTabState extends State<HomeTab> {
                                     ),
                                   ),
                                   GestureDetector(
-                                    onTap: () {},
+                                    onTap: _navigateToCreditCardForm,
                                     child: Padding(
                                       padding: const EdgeInsets.only(top: 4.0),
                                       child: Text(
@@ -148,6 +171,7 @@ class _HomeTabState extends State<HomeTab> {
                               ),
                             )
                           : _horizontalList(
+                              isWallet: false,
                               itemCount: creditCards.length,
                               itemBuilder: (index) => WalletCard(
                                 account: creditCards[index],
@@ -190,7 +214,7 @@ class _HomeTabState extends State<HomeTab> {
                                       ),
                                       const SizedBox(height: 8),
                                       const Text(
-                                        "No budgets found.",
+                                        "No budgets found",
                                         style: TextStyle(
                                           fontSize: 13,
                                           color: LynxTheme.mutedForeground,
@@ -198,7 +222,7 @@ class _HomeTabState extends State<HomeTab> {
                                         ),
                                       ),
                                       GestureDetector(
-                                        onTap: () {},
+                                        onTap: _navigateToBudgetForm,
                                         child: Padding(
                                           padding: const EdgeInsets.only(
                                             top: 4.0,
@@ -231,16 +255,20 @@ class _HomeTabState extends State<HomeTab> {
               ),
               const SizedBox(height: 30),
               StreamBuilder<List<Transaction>>(
-                stream: _isar.transactions.where().watch(fireImmediately: true),
+                stream: _isar.transactions.where().sortByDateDesc().watch(
+                  fireImmediately: true,
+                ),
                 builder: (context, snapshot) {
-                  final transactions = snapshot.data ?? [];
+                  final allTransactions = snapshot.data ?? [];
+                  final totalCount = allTransactions.length;
+                  final transactions = allTransactions.take(5).toList();
 
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _sectionHeader(
                         "Recent Transactions",
-                        showViewAll: transactions.length > 4,
+                        showViewAll: totalCount > 4,
                       ),
                       const SizedBox(height: 12),
                       transactions.isEmpty
@@ -316,16 +344,17 @@ class _HomeTabState extends State<HomeTab> {
   Widget _horizontalList({
     required int itemCount,
     required Widget Function(int index) itemBuilder,
-    double height = 120,
+    required bool isWallet,
   }) {
     return SizedBox(
-      height: height,
+      height: 120,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: itemCount + 1,
         separatorBuilder: (_, _) => const SizedBox(width: 12),
-        itemBuilder: (_, index) =>
-            index == 0 ? _buildAddButton() : itemBuilder(index - 1),
+        itemBuilder: (_, index) => index == 0
+            ? _addButton(isWallet: isWallet)
+            : itemBuilder(index - 1),
       ),
     );
   }
@@ -357,45 +386,48 @@ class _HomeTabState extends State<HomeTab> {
       width: 90,
       child: Column(
         children: [
-          SizedBox(
-            height: 70,
-            width: 70,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                if (!isAddButton)
-                  Container(
-                    height: 70,
-                    width: 70,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: LynxTheme.border.withValues(alpha: 0.3),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(2),
-                      child: CircularProgressIndicator(
-                        value: progress,
-                        strokeWidth: 6,
-                        strokeCap: StrokeCap.round,
-                        color: LynxTheme.primary,
-                        backgroundColor: LynxTheme.border.withValues(
-                          alpha: 0.5,
+          GestureDetector(
+            onTap: isAddButton ? _navigateToBudgetForm : null,
+            child: SizedBox(
+              height: 70,
+              width: 70,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  if (!isAddButton)
+                    Container(
+                      height: 70,
+                      width: 70,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: LynxTheme.border.withValues(alpha: 0.3),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(2),
+                        child: CircularProgressIndicator(
+                          value: progress,
+                          strokeWidth: 6,
+                          strokeCap: StrokeCap.round,
+                          color: LynxTheme.primary,
+                          backgroundColor: LynxTheme.border.withValues(
+                            alpha: 0.5,
+                          ),
                         ),
                       ),
                     ),
-                  ),
 
-                if (isAddButton)
-                  Container(
-                    height: 70,
-                    width: 70,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: LynxTheme.border.withValues(alpha: 0.3),
+                  if (isAddButton)
+                    Container(
+                      height: 70,
+                      width: 70,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: LynxTheme.border.withValues(alpha: 0.3),
+                      ),
                     ),
-                  ),
-                icon,
-              ],
+                  icon,
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 12),
@@ -502,27 +534,27 @@ class _HomeTabState extends State<HomeTab> {
           const SizedBox(width: 12),
           Text(
             formattedAmount,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: color, // Dynamic color: Red for expense, Green for income
-            ),
+            style: TextStyle(fontWeight: FontWeight.bold, color: color),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildAddButton() => Container(
-    width: 60,
-    decoration: BoxDecoration(
-      color: LynxTheme.border.withValues(alpha: 0.3),
-      borderRadius: BorderRadius.circular(16),
-    ),
-    child: Center(
-      child: HugeIcon(
-        icon: HugeIcons.strokeRoundedAdd01,
-        size: 34,
-        color: LynxTheme.primary,
+  Widget _addButton({required bool isWallet}) => GestureDetector(
+    onTap: isWallet ? _navigateToWalletForm : _navigateToCreditCardForm,
+    child: Container(
+      width: 60,
+      decoration: BoxDecoration(
+        color: LynxTheme.border.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Center(
+        child: HugeIcon(
+          icon: HugeIcons.strokeRoundedAdd01,
+          size: 34,
+          color: LynxTheme.primary,
+        ),
       ),
     ),
   );

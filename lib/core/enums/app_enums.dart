@@ -51,7 +51,11 @@ enum DebtType {
 
 enum TransactionType {
   income('income', 'Income', HugeIcons.strokeRoundedWalletAdd01),
-  transfer('transfer', 'Transfer', HugeIcons.strokeRoundedArrowDataTransferDiagonal),
+  transfer(
+    'transfer',
+    'Transfer',
+    HugeIcons.strokeRoundedArrowDataTransferDiagonal,
+  ),
   housing('housing', 'Housing', HugeIcons.strokeRoundedHome01),
   utilities('utilities', 'Utilities', HugeIcons.strokeRoundedInvoice01),
   groceries('groceries', 'Groceries', HugeIcons.strokeRoundedShoppingBasket01),
@@ -82,13 +86,14 @@ enum TransactionType {
 }
 
 enum CycleType {
-  weekly('weekly', 'Weekly'),
-  monthly('monthly', 'Monthly');
+  weekly('weekly', 'Weekly', HugeIcons.strokeRoundedCalendar04),
+  monthly('monthly', 'Monthly', HugeIcons.strokeRoundedCalendar02);
 
   final String value;
   final String label;
+  final List<List<dynamic>> icon;
 
-  const CycleType(this.value, this.label);
+  const CycleType(this.value, this.label, this.icon);
 
   static CycleType fromString(String value) {
     return CycleType.values.firstWhere(

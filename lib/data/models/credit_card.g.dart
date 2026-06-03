@@ -32,28 +32,23 @@ const CreditCardSchema = CollectionSchema(
       name: r'creditLimit',
       type: IsarType.double,
     ),
-    r'dueDateDay': PropertySchema(
-      id: 3,
-      name: r'dueDateDay',
-      type: IsarType.long,
-    ),
     r'lastFourDigits': PropertySchema(
-      id: 4,
+      id: 3,
       name: r'lastFourDigits',
       type: IsarType.string,
     ),
     r'name': PropertySchema(
-      id: 5,
+      id: 4,
       name: r'name',
       type: IsarType.string,
     ),
     r'showBalance': PropertySchema(
-      id: 6,
+      id: 5,
       name: r'showBalance',
       type: IsarType.bool,
     ),
     r'statementBalance': PropertySchema(
-      id: 7,
+      id: 6,
       name: r'statementBalance',
       type: IsarType.double,
     )
@@ -106,11 +101,10 @@ void _creditCardSerialize(
   writer.writeDouble(offsets[0], object.balance);
   writer.writeLong(offsets[1], object.billingCycleDay);
   writer.writeDouble(offsets[2], object.creditLimit);
-  writer.writeLong(offsets[3], object.dueDateDay);
-  writer.writeString(offsets[4], object.lastFourDigits);
-  writer.writeString(offsets[5], object.name);
-  writer.writeBool(offsets[6], object.showBalance);
-  writer.writeDouble(offsets[7], object.statementBalance);
+  writer.writeString(offsets[3], object.lastFourDigits);
+  writer.writeString(offsets[4], object.name);
+  writer.writeBool(offsets[5], object.showBalance);
+  writer.writeDouble(offsets[6], object.statementBalance);
 }
 
 CreditCard _creditCardDeserialize(
@@ -123,12 +117,11 @@ CreditCard _creditCardDeserialize(
   object.balance = reader.readDouble(offsets[0]);
   object.billingCycleDay = reader.readLong(offsets[1]);
   object.creditLimit = reader.readDouble(offsets[2]);
-  object.dueDateDay = reader.readLong(offsets[3]);
   object.id = id;
-  object.lastFourDigits = reader.readString(offsets[4]);
-  object.name = reader.readString(offsets[5]);
-  object.showBalance = reader.readBool(offsets[6]);
-  object.statementBalance = reader.readDouble(offsets[7]);
+  object.lastFourDigits = reader.readString(offsets[3]);
+  object.name = reader.readString(offsets[4]);
+  object.showBalance = reader.readBool(offsets[5]);
+  object.statementBalance = reader.readDouble(offsets[6]);
   return object;
 }
 
@@ -146,14 +139,12 @@ P _creditCardDeserializeProp<P>(
     case 2:
       return (reader.readDouble(offset)) as P;
     case 3:
-      return (reader.readLong(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 4:
       return (reader.readString(offset)) as P;
     case 5:
-      return (reader.readString(offset)) as P;
-    case 6:
       return (reader.readBool(offset)) as P;
-    case 7:
+    case 6:
       return (reader.readDouble(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -576,61 +567,6 @@ extension CreditCardQueryFilter
         upper: upper,
         includeUpper: includeUpper,
         epsilon: epsilon,
-      ));
-    });
-  }
-
-  QueryBuilder<CreditCard, CreditCard, QAfterFilterCondition> dueDateDayEqualTo(
-      int value) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'dueDateDay',
-        value: value,
-      ));
-    });
-  }
-
-  QueryBuilder<CreditCard, CreditCard, QAfterFilterCondition>
-      dueDateDayGreaterThan(
-    int value, {
-    bool include = false,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'dueDateDay',
-        value: value,
-      ));
-    });
-  }
-
-  QueryBuilder<CreditCard, CreditCard, QAfterFilterCondition>
-      dueDateDayLessThan(
-    int value, {
-    bool include = false,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'dueDateDay',
-        value: value,
-      ));
-    });
-  }
-
-  QueryBuilder<CreditCard, CreditCard, QAfterFilterCondition> dueDateDayBetween(
-    int lower,
-    int upper, {
-    bool includeLower = true,
-    bool includeUpper = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'dueDateDay',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
       ));
     });
   }
@@ -1076,18 +1012,6 @@ extension CreditCardQuerySortBy
     });
   }
 
-  QueryBuilder<CreditCard, CreditCard, QAfterSortBy> sortByDueDateDay() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'dueDateDay', Sort.asc);
-    });
-  }
-
-  QueryBuilder<CreditCard, CreditCard, QAfterSortBy> sortByDueDateDayDesc() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'dueDateDay', Sort.desc);
-    });
-  }
-
   QueryBuilder<CreditCard, CreditCard, QAfterSortBy> sortByLastFourDigits() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastFourDigits', Sort.asc);
@@ -1178,18 +1102,6 @@ extension CreditCardQuerySortThenBy
     });
   }
 
-  QueryBuilder<CreditCard, CreditCard, QAfterSortBy> thenByDueDateDay() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'dueDateDay', Sort.asc);
-    });
-  }
-
-  QueryBuilder<CreditCard, CreditCard, QAfterSortBy> thenByDueDateDayDesc() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'dueDateDay', Sort.desc);
-    });
-  }
-
   QueryBuilder<CreditCard, CreditCard, QAfterSortBy> thenById() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.asc);
@@ -1273,12 +1185,6 @@ extension CreditCardQueryWhereDistinct
     });
   }
 
-  QueryBuilder<CreditCard, CreditCard, QDistinct> distinctByDueDateDay() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'dueDateDay');
-    });
-  }
-
   QueryBuilder<CreditCard, CreditCard, QDistinct> distinctByLastFourDigits(
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
@@ -1330,12 +1236,6 @@ extension CreditCardQueryProperty
   QueryBuilder<CreditCard, double, QQueryOperations> creditLimitProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'creditLimit');
-    });
-  }
-
-  QueryBuilder<CreditCard, int, QQueryOperations> dueDateDayProperty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addPropertyName(r'dueDateDay');
     });
   }
 

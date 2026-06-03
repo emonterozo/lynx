@@ -12,10 +12,7 @@ class CreditCard {
   late double creditLimit;
   late double statementBalance;
   late bool showBalance;
-
   late int billingCycleDay;
-  late int dueDateDay;
-
   late String lastFourDigits;
 
   CreditCard();
@@ -26,9 +23,7 @@ class CreditCard {
     required double creditLimit,
     required double statementBalance,
     required bool showBalance,
-
     required int billingCycleDay,
-    required int dueDateDay,
     required String lastFourDigits,
   }) {
     return CreditCard()
@@ -38,7 +33,6 @@ class CreditCard {
       ..statementBalance = statementBalance
       ..showBalance = showBalance
       ..billingCycleDay = billingCycleDay
-      ..dueDateDay = dueDateDay
       ..lastFourDigits = lastFourDigits;
   }
 }
