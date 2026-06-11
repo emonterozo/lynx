@@ -1,7 +1,6 @@
 import 'package:isar/isar.dart';
 import '../../core/enums/app_enums.dart';
-import 'credit_card.dart';
-import 'wallet.dart';
+import '../../presentation/models/source_item.dart';
 
 part 'transaction.g.dart';
 
@@ -24,9 +23,15 @@ class Transaction {
   @Enumerated(EnumType.name)
   late FlowType flowType;
 
-  final sourceWallet = IsarLink<Wallet>();
-  final sourceCreditCard = IsarLink<CreditCard>();
-  final destinationWallet = IsarLink<Wallet>();
+  late int sourceId;
+
+  @Enumerated(EnumType.name)
+  late SourceType sourceType;
+
+  int? destinationId;
+
+  @Enumerated(EnumType.name)
+  SourceType? destinationType;
 
   Transaction();
 
@@ -37,20 +42,17 @@ class Transaction {
     required this.note,
     required this.type,
     required this.flowType,
-    Wallet? sourceWallet,
-    CreditCard? sourceCreditCard,
-    Wallet? destinationWallet,
+    required this.sourceId,
+    required SourceItem source,
+    SourceItem? destination,
+    this.destinationId,
   }) {
-    if (sourceWallet != null) {
-      this.sourceWallet.value = sourceWallet;
-    }
+    sourceId = source.id;
+    sourceType = source.type;
 
-    if (sourceCreditCard != null) {
-      this.sourceCreditCard.value = sourceCreditCard;
-    }
-
-    if (destinationWallet != null) {
-      this.destinationWallet.value = destinationWallet;
+    if (destination != null) {
+      destinationId = destination.id;
+      destinationType = destination.type;
     }
   }
 }

@@ -3,6 +3,7 @@ import 'package:hugeicons/hugeicons.dart';
 import 'package:isar/isar.dart';
 import 'package:intl/intl.dart';
 import 'package:lynx/data/models/budget.dart';
+import 'package:lynx/data/models/person.dart';
 import 'package:lynx/screens/credit_card_form.dart';
 import 'package:lynx/screens/wallet_form.dart';
 import '../core/enums/app_enums.dart';
@@ -15,6 +16,13 @@ import '../widgets/wallet_card.dart';
 import 'budget_form.dart';
 
 final DateFormat dateFormat = DateFormat('EEE, MMM dd');
+
+class TransactionWithSource {
+  final Transaction transaction;
+  final String sourceName;
+
+  TransactionWithSource({required this.transaction, required this.sourceName});
+}
 
 class HomeTab extends StatefulWidget {
   const HomeTab({super.key});
@@ -41,16 +49,32 @@ class _HomeTabState extends State<HomeTab> {
     Navigator.push(context, MaterialPageRoute(builder: (_) => BudgetForm()));
   }
 
-  Future<List<Transaction>> _loadTransactionLinks(
+  Future<String> getSourceName(SourceType type, int id) async {
+    switch (type) {
+      case SourceType.wallet:
+        final wallet = await _isar.wallets.get(id);
+        return wallet?.name ?? "";
+
+      case SourceType.creditCard:
+        final card = await _isar.creditCards.get(id);
+        return card?.name ?? "";
+
+      case SourceType.person:
+        final person = await _isar.persons.get(id);
+        return person?.name ?? "";
+    }
+  }
+
+  Future<List<TransactionWithSource>> _loadTransactionLinks(
     List<Transaction> transactions,
   ) async {
-    for (final tx in transactions) {
-      await tx.sourceWallet.load();
-      await tx.sourceCreditCard.load();
-      await tx.destinationWallet.load();
-    }
+    return Future.wait(
+      transactions.map((t) async {
+        final sourceName = await getSourceName(t.sourceType, t.sourceId);
 
-    return transactions;
+        return TransactionWithSource(transaction: t, sourceName: sourceName);
+      }),
+    );
   }
 
   @override
@@ -273,7 +297,7 @@ class _HomeTabState extends State<HomeTab> {
                 builder: (context, snapshot) {
                   final allTransactions = snapshot.data ?? [];
 
-                  return FutureBuilder<List<Transaction>>(
+                  return FutureBuilder<List<TransactionWithSource>>(
                     future: _loadTransactionLinks(allTransactions),
                     builder: (context, linkSnapshot) {
                       if (linkSnapshot.connectionState ==
@@ -518,21 +542,18 @@ class _HomeTabState extends State<HomeTab> {
     isAddButton: true,
   );
 
-  Widget _transactionItem(Transaction transaction) {
-    final isExpense = transaction.flowType == FlowType.expense;
+  Widget _transactionItem(TransactionWithSource transactionWithSource) {
+    final isExpense =
+        transactionWithSource.transaction.flowType == FlowType.expense;
     final sign = isExpense ? "-" : "+";
     final color = isExpense ? LynxTheme.error : LynxTheme.success;
 
-    final formattedDate = dateFormat.format(transaction.date);
+    final formattedDate = dateFormat.format(
+      transactionWithSource.transaction.date,
+    );
 
     final formattedAmount =
-        "$sign₱${NumberUtils.currencyFormatter(transaction.amount)}";
-
-    final sourceWallet = transaction.sourceWallet.value;
-    final sourceCreditCard = transaction.sourceCreditCard.value;
-
-    final sourceName =
-        sourceWallet?.name ?? sourceCreditCard?.name ?? 'Unknown';
+        "$sign₱${NumberUtils.currencyFormatter(transactionWithSource.transaction.amount)}";
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -542,14 +563,17 @@ class _HomeTabState extends State<HomeTab> {
       ),
       child: Row(
         children: [
-          HugeIcon(icon: transaction.type.icon, color: LynxTheme.primary),
+          HugeIcon(
+            icon: transactionWithSource.transaction.type.icon,
+            color: LynxTheme.primary,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  transaction.note,
+                  transactionWithSource.transaction.note,
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -558,7 +582,7 @@ class _HomeTabState extends State<HomeTab> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
-                  sourceName,
+                  transactionWithSource.sourceName,
                   style: const TextStyle(
                     fontSize: 12,
                     color: LynxTheme.primary,

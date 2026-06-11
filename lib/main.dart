@@ -8,6 +8,7 @@ import 'package:lynx/data/models/transaction.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:get_it/get_it.dart';
 import 'core/theme.dart';
+import 'data/models/person.dart';
 import 'data/models/wallet.dart';
 import 'screens/analytics_tab.dart';
 import 'screens/home_tab.dart';
@@ -23,6 +24,7 @@ void main() async {
   final isar = await Isar.open([
     WalletSchema,
     CreditCardSchema,
+    PersonSchema,
     DebtObligationSchema,
     BudgetSchema,
     TransactionSchema,

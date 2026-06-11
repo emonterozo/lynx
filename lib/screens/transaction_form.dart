@@ -10,25 +10,13 @@ import '../core/theme.dart';
 import '../core/utils/currency_input_formatter.dart';
 import '../core/utils/number_utils.dart';
 import '../data/models/credit_card.dart';
+import '../data/models/person.dart';
 import '../data/models/wallet.dart';
+import '../presentation/models/source_item.dart';
 import '../widgets/custom_app_bar.dart';
 import '../widgets/custom_date_picker_field.dart';
 import '../widgets/custom_dropdown_field.dart';
 import '../widgets/custom_text_field.dart';
-
-class SourceItem {
-  final int id;
-  final String name;
-  final SourceType type;
-  final List<List<dynamic>> icon;
-
-  const SourceItem({
-    required this.id,
-    required this.name,
-    required this.type,
-    required this.icon,
-  });
-}
 
 class TransactionForm extends StatefulWidget {
   const TransactionForm({super.key});
@@ -40,44 +28,67 @@ class TransactionForm extends StatefulWidget {
 class _WalletFormState extends State<TransactionForm> {
   List<Wallet> wallets = [];
   List<CreditCard> creditCards = [];
+  List<Person> persons = [];
   final _formKey = GlobalKey<FormState>();
   final _descriptionController = TextEditingController();
   final _amountController = TextEditingController();
   final _transferFeeController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
   FlowType _selectedFlowType = FlowType.expense;
-  Wallet? _destinationWallet;
   TransactionType? _selectedTransactionType;
   final isar = GetIt.I<Isar>();
   SourceItem? _selectedSource;
-  List<SourceItem> get sourceAccounts {
-    final walletSources = wallets.map((w) {
-      return SourceItem(
+  SourceItem? _selectedDestination;
+
+  List<SourceItem> buildSources() {
+    final walletSources = wallets.map(
+      (w) => SourceItem(
         id: w.id,
         name: w.name,
         type: SourceType.wallet,
         icon: w.type.icon,
-      );
-    });
+      ),
+    );
 
-    final creditCardSources = creditCards.map((c) {
-      return SourceItem(
+    final creditCardSources = creditCards.map(
+      (c) => SourceItem(
         id: c.id,
         name: c.name,
         type: SourceType.creditCard,
         icon: HugeIcons.strokeRoundedCreditCard,
-      );
-    });
+      ),
+    );
 
-    final allSources = [...walletSources, ...creditCardSources];
+    final personSources = persons.map(
+      (p) => SourceItem(
+        id: p.id,
+        name: p.name,
+        type: SourceType.person,
+        icon: HugeIcons.strokeRoundedUser,
+      ),
+    );
 
-    if (_selectedFlowType == FlowType.income) {
-      return allSources
-          .where((item) => item.type == SourceType.wallet)
-          .toList();
+    return [...walletSources, ...creditCardSources, ...personSources];
+  }
+
+  List<SourceItem> filterSources(
+    List<SourceItem> all,
+    FlowType flow, {
+    bool isDestination = false,
+  }) {
+    switch (flow) {
+      case FlowType.income:
+        return all.where((e) => e.type == SourceType.wallet).toList();
+
+      case FlowType.expense:
+        return all.where((e) => e.type != SourceType.person).toList();
+
+      case FlowType.transfer:
+        if (isDestination) {
+          return all.where((e) => e.type != SourceType.creditCard).toList();
+        }
+        return all;
     }
-
-    return allSources;
   }
 
   @override
@@ -90,13 +101,15 @@ class _WalletFormState extends State<TransactionForm> {
     final isar = Isar.getInstance()!;
 
     final walletResult = await isar.wallets.where().findAll();
-    final creditCardsResult = await isar.creditCards.where().findAll();
+    final creditCardResult = await isar.creditCards.where().findAll();
+    final personResult = await isar.persons.where().findAll();
 
     if (!mounted) return;
 
     setState(() {
       wallets = walletResult;
-      creditCards = creditCardsResult;
+      creditCards = creditCardResult;
+      persons = personResult;
     });
   }
 
@@ -106,53 +119,70 @@ class _WalletFormState extends State<TransactionForm> {
       _transferFeeController.text,
     );
 
+    if (parsedAmount <= 0) {
+      throw Exception("Amount must be greater than zero");
+    }
+
     try {
       await isar.writeTxn(() async {
-        Wallet? destination = _destinationWallet != null
-            ? await isar.wallets.get(_destinationWallet!.id)
-            : null;
-
-        Wallet? source;
-        CreditCard? creditCard;
-
-        if (_selectedSource!.type == SourceType.wallet) {
-          source = await isar.wallets.get(_selectedSource!.id);
-        } else {
-          creditCard = await isar.creditCards.get(_selectedSource!.id);
-        }
-
-        if (parsedAmount <= 0) {
-          throw Exception("Amount must be greater than zero");
-        }
+        Wallet? sourceWallet;
+        CreditCard? sourceCreditCard;
+        Person? sourcePerson;
+        Wallet? destinationWallet;
+        Person? destinationPerson;
 
         if (_selectedFlowType == FlowType.income) {
-          source!.balance += parsedAmount;
-          await isar.wallets.put(source);
+          sourceWallet = await isar.wallets.get(_selectedSource!.id);
+          sourceWallet!.balance += parsedAmount;
+          await isar.wallets.put(sourceWallet);
         } else if (_selectedFlowType == FlowType.expense) {
           if (_selectedSource!.type == SourceType.wallet) {
-            if (source!.balance < parsedAmount) {
+            sourceWallet = await isar.wallets.get(_selectedSource!.id);
+            if (sourceWallet!.balance < parsedAmount) {
               throw Exception("Insufficient balance");
             }
-            source.balance -= parsedAmount;
-            await isar.wallets.put(source);
+            sourceWallet.balance -= parsedAmount;
+            await isar.wallets.put(sourceWallet);
           } else {
-            creditCard!.balance += parsedAmount;
-            await isar.creditCards.put(creditCard);
+            sourceCreditCard = await isar.creditCards.get(_selectedSource!.id);
+            sourceCreditCard!.balance += parsedAmount;
+            await isar.creditCards.put(sourceCreditCard);
           }
-        } else if (_selectedFlowType == FlowType.transfer) {
+        } else {
+          final deduction = parsedAmount + parsedTransferFee;
           if (_selectedSource!.type == SourceType.wallet) {
-            if (source!.balance < (parsedAmount + parsedTransferFee)) {
+            sourceWallet = await isar.wallets.get(_selectedSource!.id);
+            if (sourceWallet!.balance < deduction) {
               throw Exception("Insufficient balance");
             }
-            source.balance -= (parsedAmount + parsedTransferFee);
-            await isar.wallets.put(source);
+            sourceWallet.balance -= deduction;
+            await isar.wallets.put(sourceWallet);
+          } else if (_selectedSource!.type == SourceType.creditCard) {
+            sourceCreditCard = await isar.creditCards.get(_selectedSource!.id);
+            sourceCreditCard!.balance += deduction;
+            await isar.creditCards.put(sourceCreditCard);
           } else {
-            creditCard!.balance += (parsedAmount + parsedTransferFee);
-            await isar.creditCards.put(creditCard);
+            sourcePerson = await isar.persons.get(_selectedSource!.id);
+            sourcePerson!.balance = (sourcePerson.balance - deduction).clamp(
+              0,
+              double.infinity,
+            );
+            await isar.persons.put(sourcePerson);
           }
 
-          destination!.balance += parsedAmount;
-          await isar.wallets.put(destination);
+          if (_selectedDestination!.type == SourceType.wallet) {
+            destinationWallet = await isar.wallets.get(
+              _selectedDestination!.id,
+            );
+            destinationWallet!.balance += parsedAmount;
+            await isar.wallets.put(destinationWallet);
+          } else {
+            destinationPerson = await isar.persons.get(
+              _selectedDestination!.id,
+            );
+            destinationPerson!.balance += parsedAmount;
+            await isar.persons.put(destinationPerson);
+          }
         }
 
         final newTransaction = Transaction.create(
@@ -162,17 +192,12 @@ class _WalletFormState extends State<TransactionForm> {
           note: _descriptionController.text.trim(),
           type: _selectedTransactionType!,
           flowType: _selectedFlowType,
+          source: _selectedSource!,
+          sourceId: _selectedSource!.id,
+          destination: _selectedDestination,
+          destinationId: _selectedDestination?.id,
         );
-
-        newTransaction.sourceWallet.value = source;
-        newTransaction.sourceCreditCard.value = creditCard;
-        newTransaction.destinationWallet.value = destination;
-
         await isar.transactions.put(newTransaction);
-
-        await newTransaction.sourceWallet.save();
-        await newTransaction.sourceCreditCard.save();
-        await newTransaction.destinationWallet.save();
       });
 
       if (mounted) Navigator.pop(context);
@@ -324,11 +349,13 @@ class _WalletFormState extends State<TransactionForm> {
                           label: "Source account",
                           hint: "Select source account",
                           value: _selectedSource,
-                          items: sourceAccounts
-                              .where(
-                                (item) => item.id != _destinationWallet?.id,
-                              )
-                              .toList(),
+                          items:
+                              filterSources(buildSources(), _selectedFlowType)
+                                  .where(
+                                    (item) =>
+                                        item.id != _selectedDestination?.id,
+                                  )
+                                  .toList(),
                           itemLabelBuilder: (item) => item.name,
                           itemIconBuilder: (item) => HugeIcon(
                             icon: item.icon,
@@ -341,26 +368,33 @@ class _WalletFormState extends State<TransactionForm> {
                         ),
                         if (_selectedFlowType == FlowType.transfer) ...[
                           const SizedBox(height: 16),
-                          CustomDropdownField<Wallet>(
+                          CustomDropdownField<SourceItem>(
                             key: ValueKey(
-                              'destination_${_destinationWallet?.id ?? 'none'}',
+                              'destination_${_selectedDestination?.id ?? 'none'}',
                             ),
                             label: "Destination wallet",
                             hint: "Select destination wallet",
-                            value: _destinationWallet,
-                            items: wallets
-                                .where((w) => w.id != _selectedSource?.id)
-                                .toList(),
-                            itemLabelBuilder: (wallet) => wallet.name,
-                            itemIconBuilder: (wallet) => HugeIcon(
-                              icon: wallet.type.icon,
+                            value: _selectedDestination,
+                            items:
+                                filterSources(
+                                      buildSources(),
+                                      _selectedFlowType,
+                                      isDestination: true,
+                                    )
+                                    .where(
+                                      (item) => item.id != _selectedSource?.id,
+                                    )
+                                    .toList(),
+                            itemLabelBuilder: (item) => item.name,
+                            itemIconBuilder: (item) => HugeIcon(
+                              icon: item.icon,
                               color: LynxTheme.primary,
                               size: 20,
                             ),
                             onChanged: (val) {
                               if (val != null) {
                                 setState(() {
-                                  _destinationWallet = val;
+                                  _selectedDestination = val;
                                 });
                               }
                             },

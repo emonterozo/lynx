@@ -9,7 +9,11 @@ enum WalletType {
   ewallet('e-wallet', 'E-Wallet', HugeIcons.strokeRoundedWallet01),
   savings('savings', 'Savings', HugeIcons.strokeRoundedPiggyBank),
   goals('goals', 'Goals', HugeIcons.strokeRoundedTarget02),
-  timeDeposit('time-deposit', 'Time Deposit', HugeIcons.strokeRoundedTimeQuarter02);
+  timeDeposit(
+    'time-deposit',
+    'Time Deposit',
+    HugeIcons.strokeRoundedTimeQuarter02,
+  );
 
   final String value;
   final String label;
@@ -114,7 +118,11 @@ enum CycleType {
 enum FlowType {
   income('income', 'Income', HugeIcons.strokeRoundedWalletAdd01),
   expense('expense', 'Expense', HugeIcons.strokeRoundedWallet03),
-  transfer('transfer', 'Transfer', HugeIcons.strokeRoundedArrowDataTransferDiagonal);
+  transfer(
+    'transfer',
+    'Transfer',
+    HugeIcons.strokeRoundedArrowDataTransferDiagonal,
+  );
 
   final String value;
   final String label;
@@ -130,7 +138,4 @@ enum FlowType {
   }
 }
 
-enum SourceType {
-  wallet,
-  creditCard,
-}
+enum SourceType { wallet, creditCard, person }
