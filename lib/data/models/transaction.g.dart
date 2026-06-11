@@ -90,16 +90,16 @@ const TransactionSchema = CollectionSchema(
       target: r'Wallet',
       single: true,
     ),
+    r'sourceCreditCard': LinkSchema(
+      id: 7211930953663031692,
+      name: r'sourceCreditCard',
+      target: r'CreditCard',
+      single: true,
+    ),
     r'destinationWallet': LinkSchema(
       id: 4871179327493180674,
       name: r'destinationWallet',
       target: r'Wallet',
-      single: true,
-    ),
-    r'creditCard': LinkSchema(
-      id: 7023163807758468035,
-      name: r'creditCard',
-      target: r'CreditCard',
       single: true,
     )
   },
@@ -153,7 +153,7 @@ Transaction _transactionDeserialize(
   object.note = reader.readString(offsets[4]);
   object.type =
       _TransactiontypeValueEnumMap[reader.readStringOrNull(offsets[5])] ??
-          TransactionType.income;
+          TransactionType.salary;
   return object;
 }
 
@@ -178,7 +178,7 @@ P _transactionDeserializeProp<P>(
       return (reader.readString(offset)) as P;
     case 5:
       return (_TransactiontypeValueEnumMap[reader.readStringOrNull(offset)] ??
-          TransactionType.income) as P;
+          TransactionType.salary) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }
@@ -195,8 +195,9 @@ const _TransactionflowTypeValueEnumMap = {
   r'transfer': FlowType.transfer,
 };
 const _TransactiontypeEnumValueMap = {
-  r'income': r'income',
+  r'salary': r'salary',
   r'transfer': r'transfer',
+  r'interestEarned': r'interestEarned',
   r'housing': r'housing',
   r'utilities': r'utilities',
   r'groceries': r'groceries',
@@ -209,8 +210,9 @@ const _TransactiontypeEnumValueMap = {
   r'others': r'others',
 };
 const _TransactiontypeValueEnumMap = {
-  r'income': TransactionType.income,
+  r'salary': TransactionType.salary,
   r'transfer': TransactionType.transfer,
+  r'interestEarned': TransactionType.interestEarned,
   r'housing': TransactionType.housing,
   r'utilities': TransactionType.utilities,
   r'groceries': TransactionType.groceries,
@@ -228,7 +230,11 @@ Id _transactionGetId(Transaction object) {
 }
 
 List<IsarLinkBase<dynamic>> _transactionGetLinks(Transaction object) {
-  return [object.sourceWallet, object.destinationWallet, object.creditCard];
+  return [
+    object.sourceWallet,
+    object.sourceCreditCard,
+    object.destinationWallet
+  ];
 }
 
 void _transactionAttach(
@@ -236,10 +242,10 @@ void _transactionAttach(
   object.id = id;
   object.sourceWallet
       .attach(col, col.isar.collection<Wallet>(), r'sourceWallet', id);
+  object.sourceCreditCard
+      .attach(col, col.isar.collection<CreditCard>(), r'sourceCreditCard', id);
   object.destinationWallet
       .attach(col, col.isar.collection<Wallet>(), r'destinationWallet', id);
-  object.creditCard
-      .attach(col, col.isar.collection<CreditCard>(), r'creditCard', id);
 }
 
 extension TransactionQueryWhereSort
@@ -1130,6 +1136,20 @@ extension TransactionQueryLinks
   }
 
   QueryBuilder<Transaction, Transaction, QAfterFilterCondition>
+      sourceCreditCard(FilterQuery<CreditCard> q) {
+    return QueryBuilder.apply(this, (query) {
+      return query.link(q, r'sourceCreditCard');
+    });
+  }
+
+  QueryBuilder<Transaction, Transaction, QAfterFilterCondition>
+      sourceCreditCardIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.linkLength(r'sourceCreditCard', 0, true, 0, true);
+    });
+  }
+
+  QueryBuilder<Transaction, Transaction, QAfterFilterCondition>
       destinationWallet(FilterQuery<Wallet> q) {
     return QueryBuilder.apply(this, (query) {
       return query.link(q, r'destinationWallet');
@@ -1140,20 +1160,6 @@ extension TransactionQueryLinks
       destinationWalletIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.linkLength(r'destinationWallet', 0, true, 0, true);
-    });
-  }
-
-  QueryBuilder<Transaction, Transaction, QAfterFilterCondition> creditCard(
-      FilterQuery<CreditCard> q) {
-    return QueryBuilder.apply(this, (query) {
-      return query.link(q, r'creditCard');
-    });
-  }
-
-  QueryBuilder<Transaction, Transaction, QAfterFilterCondition>
-      creditCardIsNull() {
-    return QueryBuilder.apply(this, (query) {
-      return query.linkLength(r'creditCard', 0, true, 0, true);
     });
   }
 }

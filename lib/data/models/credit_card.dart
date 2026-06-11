@@ -9,7 +9,6 @@ class CreditCard {
   @Index(type: IndexType.value)
   late String name;
   late double balance;
-  late double creditLimit;
   late double statementBalance;
   late bool showBalance;
   late int billingCycleDay;
@@ -20,7 +19,6 @@ class CreditCard {
   factory CreditCard.create({
     required String name,
     required double balance,
-    required double creditLimit,
     required double statementBalance,
     required bool showBalance,
     required int billingCycleDay,
@@ -29,7 +27,6 @@ class CreditCard {
     return CreditCard()
       ..name = name
       ..balance = balance
-      ..creditLimit = creditLimit
       ..statementBalance = statementBalance
       ..showBalance = showBalance
       ..billingCycleDay = billingCycleDay

@@ -134,6 +134,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
         borderRadius: BorderRadius.circular(14),
         borderSide: const BorderSide(color: LynxTheme.primary, width: 1.3),
       ),
+      errorMaxLines: 2,
       errorStyle: const TextStyle(
         color: LynxTheme.error,
         fontSize: 13,

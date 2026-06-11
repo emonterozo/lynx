@@ -25,25 +25,32 @@ class Transaction {
   late FlowType flowType;
 
   final sourceWallet = IsarLink<Wallet>();
+  final sourceCreditCard = IsarLink<CreditCard>();
   final destinationWallet = IsarLink<Wallet>();
-  final creditCard = IsarLink<CreditCard>();
 
   Transaction();
 
-  factory Transaction.create({
-    required double amount,
-    double? fee,
-    required DateTime date,
-    required String note,
-    required TransactionType type,
-    required FlowType flowType,
+  Transaction.create({
+    required this.amount,
+    this.fee,
+    required this.date,
+    required this.note,
+    required this.type,
+    required this.flowType,
+    Wallet? sourceWallet,
+    CreditCard? sourceCreditCard,
+    Wallet? destinationWallet,
   }) {
-    return Transaction()
-      ..amount = amount
-      ..fee = fee
-      ..date = date
-      ..note = note
-      ..type = type
-      ..flowType = flowType;
+    if (sourceWallet != null) {
+      this.sourceWallet.value = sourceWallet;
+    }
+
+    if (sourceCreditCard != null) {
+      this.sourceCreditCard.value = sourceCreditCard;
+    }
+
+    if (destinationWallet != null) {
+      this.destinationWallet.value = destinationWallet;
+    }
   }
 }

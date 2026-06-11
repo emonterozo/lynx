@@ -7,14 +7,14 @@ import 'package:lynx/screens/credit_card_form.dart';
 import 'package:lynx/screens/wallet_form.dart';
 import '../core/enums/app_enums.dart';
 import '../core/theme.dart';
+import '../core/utils/number_utils.dart';
 import '../data/models/credit_card.dart';
 import '../data/models/transaction.dart';
 import '../data/models/wallet.dart';
 import '../widgets/wallet_card.dart';
 import 'budget_form.dart';
 
-final currencyFormatter = NumberFormat("#,##0.00", "en_PH");
-final DateFormat dateFormat = DateFormat('MMM dd, hh:mm a');
+final DateFormat dateFormat = DateFormat('EEE, MMM dd');
 
 class HomeTab extends StatefulWidget {
   const HomeTab({super.key});
@@ -39,6 +39,18 @@ class _HomeTabState extends State<HomeTab> {
 
   void _navigateToBudgetForm() {
     Navigator.push(context, MaterialPageRoute(builder: (_) => BudgetForm()));
+  }
+
+  Future<List<Transaction>> _loadTransactionLinks(
+    List<Transaction> transactions,
+  ) async {
+    for (final tx in transactions) {
+      await tx.sourceWallet.load();
+      await tx.sourceCreditCard.load();
+      await tx.destinationWallet.load();
+    }
+
+    return transactions;
   }
 
   @override
@@ -260,52 +272,66 @@ class _HomeTabState extends State<HomeTab> {
                 ),
                 builder: (context, snapshot) {
                   final allTransactions = snapshot.data ?? [];
-                  final totalCount = allTransactions.length;
-                  final transactions = allTransactions.take(5).toList();
 
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _sectionHeader(
-                        "Recent Transactions",
-                        showViewAll: totalCount > 4,
-                      ),
-                      const SizedBox(height: 12),
-                      transactions.isEmpty
-                          ? Container(
-                              height: 120,
-                              alignment: Alignment.center,
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const HugeIcon(
-                                    icon: HugeIcons.strokeRoundedFileEmpty01,
-                                    size: 42,
-                                    color: LynxTheme.mutedForeground,
+                  return FutureBuilder<List<Transaction>>(
+                    future: _loadTransactionLinks(allTransactions),
+                    builder: (context, linkSnapshot) {
+                      if (linkSnapshot.connectionState ==
+                          ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+
+                      final loadedTransactions = linkSnapshot.data ?? [];
+                      final totalCount = loadedTransactions.length;
+                      final transactions = loadedTransactions.take(5).toList();
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _sectionHeader(
+                            "Recent Transactions",
+                            showViewAll: totalCount > 4,
+                          ),
+                          const SizedBox(height: 12),
+
+                          transactions.isEmpty
+                              ? Container(
+                                  height: 120,
+                                  alignment: Alignment.center,
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const HugeIcon(
+                                        icon:
+                                            HugeIcons.strokeRoundedFileEmpty01,
+                                        size: 42,
+                                        color: LynxTheme.mutedForeground,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      const Text(
+                                        "You don't have any\ntransactions yet.",
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: LynxTheme.mutedForeground,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(height: 8),
-                                  const Text(
-                                    "You don't have any\ntransactions yet.",
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: LynxTheme.mutedForeground,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ],
-                              ),
-                            )
-                          : ListView.separated(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: transactions.length,
-                              separatorBuilder: (_, _) =>
-                                  const SizedBox(height: 12),
-                              itemBuilder: (_, index) =>
-                                  _transactionItem(transactions[index]),
-                            ),
-                    ],
+                                )
+                              : ListView.separated(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  itemCount: transactions.length,
+                                  separatorBuilder: (_, _) =>
+                                      const SizedBox(height: 12),
+                                  itemBuilder: (_, index) =>
+                                      _transactionItem(transactions[index]),
+                                ),
+                        ],
+                      );
+                    },
                   );
                 },
               ),
@@ -463,9 +489,10 @@ class _HomeTabState extends State<HomeTab> {
 
     String subLabel;
     if (remaining < 0) {
-      subLabel = "Over budget by ₱${currencyFormatter.format(remaining.abs())}";
+      subLabel =
+          "Over budget by ₱${NumberUtils.currencyFormatter(remaining.abs())}";
     } else {
-      subLabel = "₱${currencyFormatter.format(remaining)} left";
+      subLabel = "₱${NumberUtils.currencyFormatter(remaining)} left";
     }
 
     return _budgetLayout(
@@ -499,7 +526,13 @@ class _HomeTabState extends State<HomeTab> {
     final formattedDate = dateFormat.format(transaction.date);
 
     final formattedAmount =
-        "$sign₱${currencyFormatter.format(transaction.amount)}";
+        "$sign₱${NumberUtils.currencyFormatter(transaction.amount)}";
+
+    final sourceWallet = transaction.sourceWallet.value;
+    final sourceCreditCard = transaction.sourceCreditCard.value;
+
+    final sourceName =
+        sourceWallet?.name ?? sourceCreditCard?.name ?? 'Unknown';
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -517,24 +550,41 @@ class _HomeTabState extends State<HomeTab> {
               children: [
                 Text(
                   transaction.note,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
-                  formattedDate,
+                  sourceName,
                   style: const TextStyle(
                     fontSize: 12,
-                    color: LynxTheme.mutedForeground,
+                    color: LynxTheme.primary,
+                    fontWeight: FontWeight.w600,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
           const SizedBox(width: 12),
-          Text(
-            formattedAmount,
-            style: TextStyle(fontWeight: FontWeight.bold, color: color),
+          Column(
+            children: [
+              Text(
+                formattedAmount,
+                style: TextStyle(fontWeight: FontWeight.bold, color: color),
+              ),
+              Text(
+                formattedDate,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: LynxTheme.mutedForeground,
+                ),
+              ),
+            ],
           ),
         ],
       ),

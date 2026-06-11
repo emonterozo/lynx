@@ -38,7 +38,7 @@ class _BudgetFormState extends State<BudgetForm> {
   DateTime _selectedDate = DateTime.now();
   final isar = GetIt.I<Isar>();
 
-  Future<void> _createCreditCard() async {
+  Future<void> _createBudget() async {
     final budgetName = _nameController.text.trim();
 
     final existingBudget = await isar.budgets
@@ -232,7 +232,7 @@ class _BudgetFormState extends State<BudgetForm> {
                     child: FilledButton(
                       onPressed: () async {
                         if (_formKey.currentState!.validate()) {
-                          _createCreditCard();
+                          _createBudget();
                         }
                       },
                       style: ElevatedButton.styleFrom(

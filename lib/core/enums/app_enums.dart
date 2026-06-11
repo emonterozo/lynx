@@ -6,7 +6,10 @@ enum WalletType {
   general('general', 'General', HugeIcons.strokeRoundedMoney01),
   cash('cash', 'Cash', HugeIcons.strokeRoundedHandCoins),
   bank('bank', 'Bank', HugeIcons.strokeRoundedLandmark),
-  ewallet('e-wallet', 'E-Wallet', HugeIcons.strokeRoundedWallet01);
+  ewallet('e-wallet', 'E-Wallet', HugeIcons.strokeRoundedWallet01),
+  savings('savings', 'Savings', HugeIcons.strokeRoundedPiggyBank),
+  goals('goals', 'Goals', HugeIcons.strokeRoundedTarget02),
+  timeDeposit('time-deposit', 'Time Deposit', HugeIcons.strokeRoundedTimeQuarter02);
 
   final String value;
   final String label;
@@ -50,11 +53,16 @@ enum DebtType {
 }
 
 enum TransactionType {
-  income('income', 'Income', HugeIcons.strokeRoundedWalletAdd01),
+  salary('salary', 'Salary', HugeIcons.strokeRoundedWalletAdd01),
   transfer(
     'transfer',
     'Transfer',
     HugeIcons.strokeRoundedArrowDataTransferDiagonal,
+  ),
+  interestEarned(
+    'interest-earned',
+    'Interest Earned',
+    HugeIcons.strokeRoundedMoneyAdd01,
   ),
   housing('housing', 'Housing', HugeIcons.strokeRoundedHome01),
   utilities('utilities', 'Utilities', HugeIcons.strokeRoundedInvoice01),
@@ -104,14 +112,15 @@ enum CycleType {
 }
 
 enum FlowType {
-  income('income', 'Income'),
-  expense('expense', 'Expense'),
-  transfer('transfer', 'Transfer');
+  income('income', 'Income', HugeIcons.strokeRoundedWalletAdd01),
+  expense('expense', 'Expense', HugeIcons.strokeRoundedWallet03),
+  transfer('transfer', 'Transfer', HugeIcons.strokeRoundedArrowDataTransferDiagonal);
 
   final String value;
   final String label;
+  final List<List<dynamic>> icon;
 
-  const FlowType(this.value, this.label);
+  const FlowType(this.value, this.label, this.icon);
 
   static FlowType fromString(String value) {
     return FlowType.values.firstWhere(
@@ -119,4 +128,9 @@ enum FlowType {
       orElse: () => FlowType.expense,
     );
   }
+}
+
+enum SourceType {
+  wallet,
+  creditCard,
 }

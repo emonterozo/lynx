@@ -8,6 +8,7 @@ import '../core/theme.dart';
 import '../core/utils/currency_input_formatter.dart';
 import '../data/models/wallet.dart';
 import '../widgets/custom_app_bar.dart';
+import '../widgets/custom_date_picker_field.dart';
 import '../widgets/custom_dropdown_field.dart';
 import '../widgets/custom_text_field.dart';
 
@@ -23,7 +24,13 @@ class _WalletFormState extends State<WalletForm> {
   final _nameController = TextEditingController();
   String? _nameFieldError;
   final _balanceController = TextEditingController();
+  final _goalAmountController = TextEditingController();
+  DateTime? _startDate;
+  DateTime? _endDate;
   WalletType _selectedWalletType = WalletType.general;
+  String? _goalAmountError;
+  String? _startDateError;
+  String? _endDateError;
   final isar = GetIt.I<Isar>();
 
   Future<void> _createWallet() async {
@@ -48,11 +55,23 @@ class _WalletFormState extends State<WalletForm> {
     final rawBalanceString = _balanceController.text.replaceAll(',', '');
     final double parsedBalance = double.tryParse(rawBalanceString) ?? 0.0;
 
-    final newWallet = Wallet()
-      ..name = walletName
-      ..balance = parsedBalance
-      ..showBalance = true
-      ..type = _selectedWalletType;
+    final rawGoalAmountString = _goalAmountController.text
+        .replaceAll(',', '')
+        .trim();
+
+    final double? parsedGoalAmount = rawGoalAmountString.isNotEmpty
+        ? double.tryParse(rawGoalAmountString)
+        : null;
+
+    final newWallet = Wallet.create(
+      name: walletName,
+      balance: parsedBalance,
+      showBalance: true,
+      type: _selectedWalletType,
+      goalAmount: parsedGoalAmount,
+      startDate: _startDate,
+      endDate: _endDate,
+    );
 
     try {
       await isar.writeTxn(() async {
@@ -71,6 +90,60 @@ class _WalletFormState extends State<WalletForm> {
           ),
         );
       }
+    }
+  }
+
+  void _onSavePressed() {
+    setState(() {
+      _goalAmountError = null;
+      _startDateError = null;
+      _endDateError = null;
+    });
+
+    final bool isFormValid = _formKey.currentState!.validate();
+
+    bool isCustomValid = true;
+
+    if (_selectedWalletType == WalletType.goals) {
+      final String goalText = _goalAmountController.text.trim();
+      final bool hasGoalAmount =
+          goalText.isNotEmpty && goalText != "0.00" && goalText != "0";
+      final bool hasEndDate = _endDate != null;
+
+      if (!hasGoalAmount && !hasEndDate) {
+        setState(() {
+          _goalAmountError =
+              "Please enter a goal amount or select goal end date";
+          _endDateError = "Please select goal end date or enter a goal amount";
+        });
+        isCustomValid = false;
+      }
+
+      if (_startDate == null) {
+        setState(() {
+          _startDateError = "Please select goal start date";
+        });
+        isCustomValid = false;
+      }
+    } else if (_selectedWalletType == WalletType.timeDeposit) {
+      if (_startDate == null) {
+        setState(() {
+          _startDateError = "Please select placement date";
+        });
+        isCustomValid = false;
+      }
+
+      if (_endDate == null) {
+        setState(() {
+          _endDateError = "Please select maturity date";
+        });
+        isCustomValid = false;
+      }
+    }
+    _formKey.currentState!.validate();
+
+    if (isFormValid && isCustomValid) {
+      _createWallet();
     }
   }
 
@@ -116,7 +189,7 @@ class _WalletFormState extends State<WalletForm> {
                             return _nameFieldError;
                           },
                           inputFormatters: [
-                            LengthLimitingTextInputFormatter(15),
+                            LengthLimitingTextInputFormatter(25),
                           ],
                         ),
                         const SizedBox(height: 16),
@@ -160,9 +233,104 @@ class _WalletFormState extends State<WalletForm> {
                             size: 20,
                           ),
                           onChanged: (val) {
-                            setState(() => _selectedWalletType = val!);
+                            if (val != null) {
+                              setState(() {
+                                _selectedWalletType = val;
+                                _goalAmountController.clear();
+                                _startDate = null;
+                                _endDate = null;
+                                _goalAmountError = null;
+                                _startDateError = null;
+                                _endDateError = null;
+                              });
+                            }
                           },
                         ),
+                        if (_selectedWalletType == WalletType.goals) ...[
+                          const SizedBox(height: 16),
+                          CustomTextField(
+                            label: "Goal Amount",
+                            hint: "0.00",
+                            controller: _goalAmountController,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            prefix: const Padding(
+                              padding: EdgeInsets.only(right: 4.0),
+                              child: Text(
+                                "₱",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: LynxTheme.foreground,
+                                ),
+                              ),
+                            ),
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(
+                                RegExp(r'[\d.,]'),
+                              ),
+                              CurrencyInputFormatter(),
+                            ],
+                            onChanged: (value) {
+                              if (_goalAmountError != null) {
+                                setState(() {
+                                  _goalAmountError = null;
+                                  _endDateError = null;
+                                });
+                              }
+                              _formKey.currentState!.validate();
+                            },
+                            validator: (_) {
+                              return _goalAmountError;
+                            },
+                          ),
+                        ],
+                        if (_selectedWalletType == WalletType.goals ||
+                            _selectedWalletType == WalletType.timeDeposit) ...[
+                          const SizedBox(height: 16),
+                          CustomDatePickerField(
+                            label: _selectedWalletType == WalletType.goals
+                                ? "Goal start date"
+                                : "Placement date",
+                            hint: _selectedWalletType == WalletType.goals
+                                ? "Select goal start date"
+                                : "Select placement date",
+                            value: _startDate,
+                            lastDate: DateTime.now(),
+                            onChanged: (DateTime? date) {
+                              setState(() {
+                                _startDate = date;
+                                _startDateError = null;
+                              });
+                              _formKey.currentState!.validate();
+                            },
+                            validator: (_) {
+                              return _startDateError;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          CustomDatePickerField(
+                            label: _selectedWalletType == WalletType.goals
+                                ? "Goal end date"
+                                : "Maturity date",
+                            hint: _selectedWalletType == WalletType.goals
+                                ? "Select goal end date"
+                                : "Select maturity date",
+                            value: _endDate,
+                            firstDate: DateTime.now(),
+                            onChanged: (DateTime? date) {
+                              setState(() {
+                                _endDate = date;
+                                _endDateError = null;
+                                _goalAmountError = null;
+                              });
+                              _formKey.currentState!.validate();
+                            },
+                            validator: (_) {
+                              return _endDateError;
+                            },
+                          ),
+                        ],
                         const SizedBox(height: 24),
                       ],
                     ),
@@ -182,11 +350,7 @@ class _WalletFormState extends State<WalletForm> {
                       ],
                     ),
                     child: FilledButton(
-                      onPressed: () async {
-                        if (_formKey.currentState!.validate()) {
-                          _createWallet();
-                        }
-                      },
+                      onPressed: _onSavePressed,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: LynxTheme.primary,
                         foregroundColor: Colors.white,

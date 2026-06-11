@@ -10,6 +10,7 @@ class CustomDatePickerField extends StatelessWidget {
   final String? Function(DateTime?)? validator;
   final DateTime? firstDate;
   final DateTime? lastDate;
+  final bool includeTime;
 
   const CustomDatePickerField({
     super.key,
@@ -20,17 +21,37 @@ class CustomDatePickerField extends StatelessWidget {
     this.validator,
     this.firstDate,
     this.lastDate,
+    this.includeTime = false,
   });
 
-  // Helper method to format date cleanly (e.g., "Jun 03, 2026")
-  String _formatDate(DateTime date) {
+  String _formatDateTime(DateTime date) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
-    final day = date.day.toString().padLeft(2, '0');
+
     final month = months[date.month - 1];
-    return '$month $day, ${date.year}';
+    final day = date.day.toString().padLeft(2, '0');
+
+    if (!includeTime) {
+      return '$month $day, ${date.year}';
+    }
+
+    final hour = date.hour % 12 == 0 ? 12 : date.hour % 12;
+    final minute = date.minute.toString().padLeft(2, '0');
+    final period = date.hour >= 12 ? 'PM' : 'AM';
+
+    return '$month $day, ${date.year} • $hour:$minute $period';
   }
 
   InputDecoration _inputDecoration() {
@@ -43,19 +64,24 @@ class CustomDatePickerField extends StatelessWidget {
       ),
       filled: true,
       fillColor: LynxTheme.card,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      
-      // Right side calendar icon replacing the downward arrow
-      suffixIcon: const Padding(
-        padding: EdgeInsets.only(right: 16),
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 14,
+      ),
+      suffixIcon: Padding(
+        padding: const EdgeInsets.only(right: 16),
         child: HugeIcon(
-          icon: HugeIcons.strokeRoundedCalendar01,
+          icon: includeTime
+              ? HugeIcons.strokeRoundedClock01
+              : HugeIcons.strokeRoundedCalendar01,
           color: LynxTheme.mutedForeground,
           size: 20,
         ),
       ),
-      suffixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
-      
+      suffixIconConstraints: const BoxConstraints(
+        minWidth: 0,
+        minHeight: 0,
+      ),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
         borderSide: BorderSide.none,
@@ -66,7 +92,10 @@ class CustomDatePickerField extends StatelessWidget {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: LynxTheme.primary, width: 1.3),
+        borderSide: const BorderSide(
+          color: LynxTheme.primary,
+          width: 1.3,
+        ),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
@@ -74,8 +103,12 @@ class CustomDatePickerField extends StatelessWidget {
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: LynxTheme.primary, width: 1.3),
+        borderSide: const BorderSide(
+          color: LynxTheme.primary,
+          width: 1.3,
+        ),
       ),
+      errorMaxLines: 2,
       errorStyle: const TextStyle(
         color: LynxTheme.error,
         fontSize: 13,
@@ -84,10 +117,13 @@ class CustomDatePickerField extends StatelessWidget {
     );
   }
 
-  Future<void> _showNativeDatePicker(BuildContext context, FormFieldState<DateTime> state) async {
-    final DateTime now = DateTime.now();
-    
-    final DateTime? picked = await showDatePicker(
+  Future<void> _showPicker(
+    BuildContext context,
+    FormFieldState<DateTime> state,
+  ) async {
+    final now = DateTime.now();
+
+    final pickedDate = await showDatePicker(
       context: context,
       initialDate: value ?? now,
       firstDate: firstDate ?? DateTime(2000),
@@ -108,10 +144,31 @@ class CustomDatePickerField extends StatelessWidget {
       },
     );
 
-    if (picked != null) {
-      onChanged(picked);
-      state.didChange(picked); // Forces the FormField status validation to update immediately
+    if (pickedDate == null) return;
+
+    DateTime selectedDateTime = pickedDate;
+
+    if (includeTime) {
+      final pickedTime = await showTimePicker(
+        context: context,
+        initialTime: value != null
+            ? TimeOfDay.fromDateTime(value!)
+            : TimeOfDay.now(),
+      );
+
+      if (pickedTime != null) {
+        selectedDateTime = DateTime(
+          pickedDate.year,
+          pickedDate.month,
+          pickedDate.day,
+          pickedTime.hour,
+          pickedTime.minute,
+        );
+      }
     }
+
+    onChanged(selectedDateTime);
+    state.didChange(selectedDateTime);
   }
 
   @override
@@ -131,9 +188,9 @@ class CustomDatePickerField extends StatelessWidget {
         FormField<DateTime>(
           initialValue: value,
           validator: validator,
-          builder: (FormFieldState<DateTime> state) {
+          builder: (state) {
             return GestureDetector(
-              onTap: () => _showNativeDatePicker(context, state),
+              onTap: () => _showPicker(context, state),
               child: InputDecorator(
                 decoration: _inputDecoration().copyWith(
                   errorText: state.errorText,
@@ -141,7 +198,7 @@ class CustomDatePickerField extends StatelessWidget {
                 isEmpty: value == null,
                 child: value != null
                     ? Text(
-                        _formatDate(value!),
+                        _formatDateTime(value!),
                         style: const TextStyle(
                           color: LynxTheme.foreground,
                           fontSize: 15,

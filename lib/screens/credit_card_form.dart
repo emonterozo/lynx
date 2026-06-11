@@ -7,6 +7,7 @@ import 'package:lynx/core/utils/day_of_month_input_formatter.dart';
 import 'package:lynx/data/models/credit_card.dart';
 import '../core/theme.dart';
 import '../core/utils/currency_input_formatter.dart';
+import '../core/utils/number_utils.dart';
 import '../widgets/custom_app_bar.dart';
 import '../widgets/custom_text_field.dart';
 
@@ -23,7 +24,6 @@ class _CreditCardFormState extends State<CreditCardForm> {
   String? _nameFieldError;
   final _fourDigitController = TextEditingController();
   final _balanceController = TextEditingController();
-  final _creditLimitController = TextEditingController();
   final _billingDayController = TextEditingController();
   final isar = GetIt.I<Isar>();
 
@@ -46,23 +46,12 @@ class _CreditCardFormState extends State<CreditCardForm> {
 
     setState(() => _nameFieldError = null);
 
-    final rawBalanceString = _balanceController.text.replaceAll(',', '');
-    final double parsedBalance = double.tryParse(rawBalanceString) ?? 0.0;
-
-    final rawCreditLimitString = _creditLimitController.text.replaceAll(
-      ',',
-      '',
-    );
-    final double parsedCreditLimit =
-        double.tryParse(rawCreditLimitString) ?? 0.0;
-
     final newCreditCard = CreditCard()
       ..name = creditCardName
       ..lastFourDigits = _fourDigitController.text.trim()
-      ..creditLimit = parsedCreditLimit
-      ..balance = parsedBalance
+      ..balance = NumberUtils.parseAmount(_balanceController.text)
       ..statementBalance = 0
-      ..billingCycleDay = int.parse(_balanceController.text.trim())
+      ..billingCycleDay = int.parse(_billingDayController.text.trim())
       ..showBalance = true;
 
     try {
@@ -142,34 +131,6 @@ class _CreditCardFormState extends State<CreditCardForm> {
                           ],
                           validator: (val) => val!.isEmpty
                               ? "Please enter credit card last four digits"
-                              : null,
-                        ),
-                        const SizedBox(height: 16),
-                        CustomTextField(
-                          label: "Credit card limit",
-                          hint: "0.00",
-                          controller: _creditLimitController,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          prefix: const Padding(
-                            padding: EdgeInsets.only(right: 4.0),
-                            child: Text(
-                              "₱",
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: LynxTheme.foreground,
-                              ),
-                            ),
-                          ),
-                          inputFormatters: [
-                            FilteringTextInputFormatter.allow(
-                              RegExp(r'[\d.,]'),
-                            ),
-                            CurrencyInputFormatter(),
-                          ],
-                          validator: (val) => val!.isEmpty
-                              ? "Please enter credit card limit"
                               : null,
                         ),
                         const SizedBox(height: 16),

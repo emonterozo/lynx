@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:hugeicons/hugeicons.dart';
-import 'package:intl/intl.dart';
 import 'package:isar/isar.dart';
 import '../core/theme.dart';
+import '../core/utils/number_utils.dart';
 import '../data/models/credit_card.dart';
 import '../data/models/wallet.dart';
-
-final currencyFormatter = NumberFormat("#,##0.00", "en_PH");
 
 class WalletCard extends StatefulWidget {
   const WalletCard({super.key, required this.account, this.onTap});
@@ -41,7 +39,11 @@ class _WalletCardState extends State<WalletCard> {
   Widget build(BuildContext context) {
     final account = widget.account;
     final name = account.name;
-    final balance = account.balance;
+    double balance = account.balance;
+    if (account is CreditCard) {
+      balance = account.balance - account.statementBalance;
+    }
+
     final typeLabel = account is Wallet
         ? account.type.label
         : "•••• ${account.lastFourDigits}";
@@ -73,7 +75,7 @@ class _WalletCardState extends State<WalletCard> {
                 Flexible(
                   child: Text(
                     account.showBalance
-                        ? "₱ ${currencyFormatter.format(balance)}"
+                        ? "₱ ${NumberUtils.currencyFormatter(balance)}"
                         : "••••••••",
                     style: const TextStyle(
                       fontSize: 16,

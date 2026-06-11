@@ -99,7 +99,7 @@ Budget _budgetDeserialize(
   object.name = reader.readString(offsets[2]);
   object.startDate = reader.readDateTime(offsets[3]);
   object.type = _BudgettypeValueEnumMap[reader.readStringOrNull(offsets[4])] ??
-      TransactionType.income;
+      TransactionType.salary;
   return object;
 }
 
@@ -121,7 +121,7 @@ P _budgetDeserializeProp<P>(
       return (reader.readDateTime(offset)) as P;
     case 4:
       return (_BudgettypeValueEnumMap[reader.readStringOrNull(offset)] ??
-          TransactionType.income) as P;
+          TransactionType.salary) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }
@@ -136,8 +136,9 @@ const _BudgetcycleTypeValueEnumMap = {
   r'monthly': CycleType.monthly,
 };
 const _BudgettypeEnumValueMap = {
-  r'income': r'income',
+  r'salary': r'salary',
   r'transfer': r'transfer',
+  r'interestEarned': r'interestEarned',
   r'housing': r'housing',
   r'utilities': r'utilities',
   r'groceries': r'groceries',
@@ -150,8 +151,9 @@ const _BudgettypeEnumValueMap = {
   r'others': r'others',
 };
 const _BudgettypeValueEnumMap = {
-  r'income': TransactionType.income,
+  r'salary': TransactionType.salary,
   r'transfer': TransactionType.transfer,
+  r'interestEarned': TransactionType.interestEarned,
   r'housing': TransactionType.housing,
   r'utilities': TransactionType.utilities,
   r'groceries': TransactionType.groceries,

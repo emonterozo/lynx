@@ -12,6 +12,7 @@ import 'data/models/wallet.dart';
 import 'screens/analytics_tab.dart';
 import 'screens/home_tab.dart';
 import 'screens/settings_tab.dart';
+import 'screens/transaction_form.dart';
 import 'screens/vault_tab.dart';
 
 void main() async {
@@ -24,7 +25,7 @@ void main() async {
     CreditCardSchema,
     DebtObligationSchema,
     BudgetSchema,
-    TransactionSchema
+    TransactionSchema,
   ], directory: dir.path);
 
   GetIt.instance.registerSingleton<Isar>(isar);
@@ -82,7 +83,12 @@ class _MainNavigationState extends State<MainNavigation> {
           ],
         ),
         child: FloatingActionButton(
-          onPressed: () {},
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => TransactionForm()),
+            );
+          },
           backgroundColor: LynxTheme.primary,
           elevation: 0,
           shape: const CircleBorder(),

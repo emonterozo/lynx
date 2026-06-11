@@ -27,28 +27,23 @@ const CreditCardSchema = CollectionSchema(
       name: r'billingCycleDay',
       type: IsarType.long,
     ),
-    r'creditLimit': PropertySchema(
-      id: 2,
-      name: r'creditLimit',
-      type: IsarType.double,
-    ),
     r'lastFourDigits': PropertySchema(
-      id: 3,
+      id: 2,
       name: r'lastFourDigits',
       type: IsarType.string,
     ),
     r'name': PropertySchema(
-      id: 4,
+      id: 3,
       name: r'name',
       type: IsarType.string,
     ),
     r'showBalance': PropertySchema(
-      id: 5,
+      id: 4,
       name: r'showBalance',
       type: IsarType.bool,
     ),
     r'statementBalance': PropertySchema(
-      id: 6,
+      id: 5,
       name: r'statementBalance',
       type: IsarType.double,
     )
@@ -100,11 +95,10 @@ void _creditCardSerialize(
 ) {
   writer.writeDouble(offsets[0], object.balance);
   writer.writeLong(offsets[1], object.billingCycleDay);
-  writer.writeDouble(offsets[2], object.creditLimit);
-  writer.writeString(offsets[3], object.lastFourDigits);
-  writer.writeString(offsets[4], object.name);
-  writer.writeBool(offsets[5], object.showBalance);
-  writer.writeDouble(offsets[6], object.statementBalance);
+  writer.writeString(offsets[2], object.lastFourDigits);
+  writer.writeString(offsets[3], object.name);
+  writer.writeBool(offsets[4], object.showBalance);
+  writer.writeDouble(offsets[5], object.statementBalance);
 }
 
 CreditCard _creditCardDeserialize(
@@ -116,12 +110,11 @@ CreditCard _creditCardDeserialize(
   final object = CreditCard();
   object.balance = reader.readDouble(offsets[0]);
   object.billingCycleDay = reader.readLong(offsets[1]);
-  object.creditLimit = reader.readDouble(offsets[2]);
   object.id = id;
-  object.lastFourDigits = reader.readString(offsets[3]);
-  object.name = reader.readString(offsets[4]);
-  object.showBalance = reader.readBool(offsets[5]);
-  object.statementBalance = reader.readDouble(offsets[6]);
+  object.lastFourDigits = reader.readString(offsets[2]);
+  object.name = reader.readString(offsets[3]);
+  object.showBalance = reader.readBool(offsets[4]);
+  object.statementBalance = reader.readDouble(offsets[5]);
   return object;
 }
 
@@ -137,14 +130,12 @@ P _creditCardDeserializeProp<P>(
     case 1:
       return (reader.readLong(offset)) as P;
     case 2:
-      return (reader.readDouble(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 3:
       return (reader.readString(offset)) as P;
     case 4:
-      return (reader.readString(offset)) as P;
-    case 5:
       return (reader.readBool(offset)) as P;
-    case 6:
+    case 5:
       return (reader.readDouble(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -501,72 +492,6 @@ extension CreditCardQueryFilter
         includeLower: includeLower,
         upper: upper,
         includeUpper: includeUpper,
-      ));
-    });
-  }
-
-  QueryBuilder<CreditCard, CreditCard, QAfterFilterCondition>
-      creditLimitEqualTo(
-    double value, {
-    double epsilon = Query.epsilon,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'creditLimit',
-        value: value,
-        epsilon: epsilon,
-      ));
-    });
-  }
-
-  QueryBuilder<CreditCard, CreditCard, QAfterFilterCondition>
-      creditLimitGreaterThan(
-    double value, {
-    bool include = false,
-    double epsilon = Query.epsilon,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'creditLimit',
-        value: value,
-        epsilon: epsilon,
-      ));
-    });
-  }
-
-  QueryBuilder<CreditCard, CreditCard, QAfterFilterCondition>
-      creditLimitLessThan(
-    double value, {
-    bool include = false,
-    double epsilon = Query.epsilon,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'creditLimit',
-        value: value,
-        epsilon: epsilon,
-      ));
-    });
-  }
-
-  QueryBuilder<CreditCard, CreditCard, QAfterFilterCondition>
-      creditLimitBetween(
-    double lower,
-    double upper, {
-    bool includeLower = true,
-    bool includeUpper = true,
-    double epsilon = Query.epsilon,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'creditLimit',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        epsilon: epsilon,
       ));
     });
   }
@@ -1000,18 +925,6 @@ extension CreditCardQuerySortBy
     });
   }
 
-  QueryBuilder<CreditCard, CreditCard, QAfterSortBy> sortByCreditLimit() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'creditLimit', Sort.asc);
-    });
-  }
-
-  QueryBuilder<CreditCard, CreditCard, QAfterSortBy> sortByCreditLimitDesc() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'creditLimit', Sort.desc);
-    });
-  }
-
   QueryBuilder<CreditCard, CreditCard, QAfterSortBy> sortByLastFourDigits() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastFourDigits', Sort.asc);
@@ -1087,18 +1000,6 @@ extension CreditCardQuerySortThenBy
       thenByBillingCycleDayDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'billingCycleDay', Sort.desc);
-    });
-  }
-
-  QueryBuilder<CreditCard, CreditCard, QAfterSortBy> thenByCreditLimit() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'creditLimit', Sort.asc);
-    });
-  }
-
-  QueryBuilder<CreditCard, CreditCard, QAfterSortBy> thenByCreditLimitDesc() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'creditLimit', Sort.desc);
     });
   }
 
@@ -1179,12 +1080,6 @@ extension CreditCardQueryWhereDistinct
     });
   }
 
-  QueryBuilder<CreditCard, CreditCard, QDistinct> distinctByCreditLimit() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'creditLimit');
-    });
-  }
-
   QueryBuilder<CreditCard, CreditCard, QDistinct> distinctByLastFourDigits(
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
@@ -1230,12 +1125,6 @@ extension CreditCardQueryProperty
   QueryBuilder<CreditCard, int, QQueryOperations> billingCycleDayProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'billingCycleDay');
-    });
-  }
-
-  QueryBuilder<CreditCard, double, QQueryOperations> creditLimitProperty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addPropertyName(r'creditLimit');
     });
   }
 

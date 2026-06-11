@@ -22,6 +22,8 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     return AppBar(
       backgroundColor: Colors.transparent,
       elevation: 0,
+      scrolledUnderElevation: 0,
+      surfaceTintColor: Colors.transparent,
       centerTitle: false,
       titleSpacing: 0,
       leading: IconButton(
@@ -29,16 +31,12 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
           icon: HugeIcons.strokeRoundedArrowLeft01,
           color: LynxTheme.foreground,
         ),
-        onPressed:
-            onBackPressed ?? () => Navigator.of(context).maybePop(),
+        onPressed: onBackPressed ?? () => Navigator.of(context).maybePop(),
       ),
       actions: actions,
       title: Text(
         title,
-        style: const TextStyle(
-          fontWeight: FontWeight.bold,
-          fontSize: 22,
-        ),
+        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22),
       ),
     );
   }
