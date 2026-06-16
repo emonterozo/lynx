@@ -11,6 +11,7 @@ class CustomDropdownField<T> extends StatelessWidget {
   final Widget Function(T)? itemIconBuilder;
   final ValueChanged<T?> onChanged;
   final String? Function(T?)? validator;
+  final bool enabled;
 
   const CustomDropdownField({
     super.key,
@@ -22,6 +23,7 @@ class CustomDropdownField<T> extends StatelessWidget {
     required this.onChanged,
     this.itemIconBuilder,
     this.validator,
+    this.enabled = true,
   });
 
   InputDecoration _inputDecoration() {
@@ -68,6 +70,10 @@ class CustomDropdownField<T> extends StatelessWidget {
         color: LynxTheme.error,
         fontSize: 13,
         fontWeight: FontWeight.w500,
+      ),
+      disabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: LynxTheme.border.withValues(alpha: 0.4)),
       ),
     );
   }
@@ -159,8 +165,10 @@ class CustomDropdownField<T> extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(
-            color: LynxTheme.mutedForeground,
+          style: TextStyle(
+            color: enabled
+                ? LynxTheme.mutedForeground
+                : LynxTheme.mutedForeground.withValues(alpha: 0.5),
             fontSize: 14,
             fontWeight: FontWeight.w500,
           ),
@@ -170,31 +178,34 @@ class CustomDropdownField<T> extends StatelessWidget {
           initialValue: value,
           validator: validator,
           builder: (FormFieldState<T> state) {
-            return GestureDetector(
-              onTap: () => _showBottomSheet(context),
-              child: InputDecorator(
-                decoration: _inputDecoration().copyWith(
-                  errorText: state.errorText,
-                ),
-                isEmpty: value == null,
-                child: value != null
-                    ? Row(
-                        children: [
-                          if (itemIconBuilder != null) ...[
-                            itemIconBuilder!(value as T),
-                            const SizedBox(width: 12),
-                          ],
-                          Text(
-                            itemLabelBuilder(value as T),
-                            style: const TextStyle(
-                              color: LynxTheme.foreground,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
+            return Opacity(
+              opacity: enabled ? 1 : 0.65,
+              child: GestureDetector(
+                onTap: enabled ? () => _showBottomSheet(context) : null,
+                child: InputDecorator(
+                  decoration: _inputDecoration().copyWith(
+                    errorText: state.errorText,
+                  ),
+                  isEmpty: value == null,
+                  child: value != null
+                      ? Row(
+                          children: [
+                            if (itemIconBuilder != null) ...[
+                              itemIconBuilder!(value as T),
+                              const SizedBox(width: 12),
+                            ],
+                            Text(
+                              itemLabelBuilder(value as T),
+                              style: const TextStyle(
+                                color: LynxTheme.foreground,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                          ),
-                        ],
-                      )
-                    : null,
+                          ],
+                        )
+                      : null,
+                ),
               ),
             );
           },

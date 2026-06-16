@@ -57,7 +57,7 @@ enum DebtType {
 }
 
 enum TransactionType {
-  salary('salary', 'Salary', HugeIcons.strokeRoundedWalletAdd01),
+  salary('salary', 'Salary', HugeIcons.strokeRoundedMoneyReceive01),
   transfer(
     'transfer',
     'Transfer',
@@ -67,6 +67,16 @@ enum TransactionType {
     'interest-earned',
     'Interest Earned',
     HugeIcons.strokeRoundedMoneyAdd01,
+  ),
+  cashBack(
+    'cash-back',
+    'Cashback',
+    HugeIcons.strokeRoundedCashback,
+  ),
+  budget(
+    'budget',
+    'Budget',
+    HugeIcons.strokeRoundedMoneySendSquare,
   ),
   housing('housing', 'Housing', HugeIcons.strokeRoundedHome01),
   utilities('utilities', 'Utilities', HugeIcons.strokeRoundedInvoice01),

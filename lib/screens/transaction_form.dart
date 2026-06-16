@@ -6,6 +6,7 @@ import 'package:isar/isar.dart';
 import 'package:lynx/data/models/transaction.dart'
     show GetTransactionCollection, Transaction;
 import '../core/enums/app_enums.dart';
+import '../core/services/transaction_service.dart';
 import '../core/theme.dart';
 import '../core/utils/currency_input_formatter.dart';
 import '../core/utils/number_utils.dart';
@@ -19,26 +20,29 @@ import '../widgets/custom_dropdown_field.dart';
 import '../widgets/custom_text_field.dart';
 
 class TransactionForm extends StatefulWidget {
-  const TransactionForm({super.key});
+  final Id? transactionId;
+  const TransactionForm({super.key, this.transactionId});
 
   @override
-  State<TransactionForm> createState() => _WalletFormState();
+  State<TransactionForm> createState() => _TransactionFormState();
 }
 
-class _WalletFormState extends State<TransactionForm> {
+class _TransactionFormState extends State<TransactionForm> {
+  final formatter = CurrencyInputFormatter();
   List<Wallet> wallets = [];
   List<CreditCard> creditCards = [];
   List<Person> persons = [];
   final _formKey = GlobalKey<FormState>();
-  final _descriptionController = TextEditingController();
-  final _amountController = TextEditingController();
-  final _transferFeeController = TextEditingController();
+  TextEditingController _descriptionController = TextEditingController();
+  TextEditingController _amountController = TextEditingController();
+  TextEditingController _transferFeeController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
   FlowType _selectedFlowType = FlowType.expense;
   TransactionType? _selectedTransactionType;
   final isar = GetIt.I<Isar>();
   SourceItem? _selectedSource;
   SourceItem? _selectedDestination;
+  Transaction? _transaction;
 
   List<SourceItem> buildSources() {
     final walletSources = wallets.map(
@@ -91,13 +95,32 @@ class _WalletFormState extends State<TransactionForm> {
     }
   }
 
+  SourceItem? getSourceByFlowAndId(
+    FlowType flow,
+    Id id,
+    List<SourceItem> allSources, {
+    bool isDestination = false,
+  }) {
+    final sources = filterSources(
+      allSources,
+      flow,
+      isDestination: isDestination,
+    );
+
+    try {
+      return sources.firstWhere((s) => s.id == id);
+    } catch (_) {
+      return null;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
-    _loadWallets();
+    _initialize();
   }
 
-  Future<void> _loadWallets() async {
+  Future<void> _initialize() async {
     final isar = Isar.getInstance()!;
 
     final walletResult = await isar.wallets.where().findAll();
@@ -111,93 +134,75 @@ class _WalletFormState extends State<TransactionForm> {
       creditCards = creditCardResult;
       persons = personResult;
     });
+
+    if (widget.transactionId != null) {
+      final transaction = await isar.transactions.get(
+        widget.transactionId as Id,
+      );
+      if (transaction != null) {
+        setState(() {
+          _selectedFlowType = transaction.flowType;
+          _selectedTransactionType = transaction.type;
+          _selectedDate = transaction.date;
+          _transaction = transaction;
+        });
+        _amountController = TextEditingController(
+          text: CurrencyInputFormatter.formatValue(transaction.amount),
+        );
+        _descriptionController = TextEditingController(text: transaction.note);
+        _transferFeeController = TextEditingController(
+          text: CurrencyInputFormatter.formatValue(transaction.fee!),
+        );
+
+        final source = getSourceByFlowAndId(
+          transaction.flowType,
+          transaction.sourceId,
+          buildSources(),
+        );
+        _selectedSource = source;
+
+        if (transaction.flowType == FlowType.transfer) {
+          final destination = getSourceByFlowAndId(
+            transaction.flowType,
+            transaction.destinationId!,
+            buildSources(),
+            isDestination: true,
+          );
+          _selectedDestination = destination;
+        }
+      }
+    }
+  }
+
+  Future<void> _deleteTransaction(Transaction transaction) async {
+    await isar.writeTxn(() async {
+      await TransactionService(isar).reverse(transaction);
+      await isar.transactions.delete(transaction.id);
+    });
+    if (mounted) Navigator.pop(context);
   }
 
   Future<void> _createTransaction() async {
-    final double parsedAmount = NumberUtils.parseAmount(_amountController.text);
-    final double parsedTransferFee = NumberUtils.parseAmount(
-      _transferFeeController.text,
-    );
-
-    if (parsedAmount <= 0) {
-      throw Exception("Amount must be greater than zero");
-    }
+    final amount = NumberUtils.parseAmount(_amountController.text);
+    final fee = NumberUtils.parseAmount(_transferFeeController.text);
 
     try {
+      final tx = Transaction.create(
+        amount: amount,
+        fee: fee,
+        date: _selectedDate,
+        note: _descriptionController.text.trim(),
+        type: _selectedTransactionType!,
+        flowType: _selectedFlowType,
+        source: _selectedSource!,
+        sourceId: _selectedSource!.id,
+        destination: _selectedDestination,
+        destinationId: _selectedDestination?.id,
+      );
+
       await isar.writeTxn(() async {
-        Wallet? sourceWallet;
-        CreditCard? sourceCreditCard;
-        Person? sourcePerson;
-        Wallet? destinationWallet;
-        Person? destinationPerson;
-
-        if (_selectedFlowType == FlowType.income) {
-          sourceWallet = await isar.wallets.get(_selectedSource!.id);
-          sourceWallet!.balance += parsedAmount;
-          await isar.wallets.put(sourceWallet);
-        } else if (_selectedFlowType == FlowType.expense) {
-          if (_selectedSource!.type == SourceType.wallet) {
-            sourceWallet = await isar.wallets.get(_selectedSource!.id);
-            if (sourceWallet!.balance < parsedAmount) {
-              throw Exception("Insufficient balance");
-            }
-            sourceWallet.balance -= parsedAmount;
-            await isar.wallets.put(sourceWallet);
-          } else {
-            sourceCreditCard = await isar.creditCards.get(_selectedSource!.id);
-            sourceCreditCard!.balance += parsedAmount;
-            await isar.creditCards.put(sourceCreditCard);
-          }
-        } else {
-          final deduction = parsedAmount + parsedTransferFee;
-          if (_selectedSource!.type == SourceType.wallet) {
-            sourceWallet = await isar.wallets.get(_selectedSource!.id);
-            if (sourceWallet!.balance < deduction) {
-              throw Exception("Insufficient balance");
-            }
-            sourceWallet.balance -= deduction;
-            await isar.wallets.put(sourceWallet);
-          } else if (_selectedSource!.type == SourceType.creditCard) {
-            sourceCreditCard = await isar.creditCards.get(_selectedSource!.id);
-            sourceCreditCard!.balance += deduction;
-            await isar.creditCards.put(sourceCreditCard);
-          } else {
-            sourcePerson = await isar.persons.get(_selectedSource!.id);
-            sourcePerson!.balance = (sourcePerson.balance - deduction).clamp(
-              0,
-              double.infinity,
-            );
-            await isar.persons.put(sourcePerson);
-          }
-
-          if (_selectedDestination!.type == SourceType.wallet) {
-            destinationWallet = await isar.wallets.get(
-              _selectedDestination!.id,
-            );
-            destinationWallet!.balance += parsedAmount;
-            await isar.wallets.put(destinationWallet);
-          } else {
-            destinationPerson = await isar.persons.get(
-              _selectedDestination!.id,
-            );
-            destinationPerson!.balance += parsedAmount;
-            await isar.persons.put(destinationPerson);
-          }
-        }
-
-        final newTransaction = Transaction.create(
-          amount: parsedAmount,
-          fee: parsedTransferFee,
-          date: _selectedDate,
-          note: _descriptionController.text.trim(),
-          type: _selectedTransactionType!,
-          flowType: _selectedFlowType,
-          source: _selectedSource!,
-          sourceId: _selectedSource!.id,
-          destination: _selectedDestination,
-          destinationId: _selectedDestination?.id,
-        );
-        await isar.transactions.put(newTransaction);
+        await TransactionService(isar).apply(tx);
+        await isar.transactions.put(tx);
       });
 
       if (mounted) Navigator.pop(context);
@@ -211,6 +216,36 @@ class _WalletFormState extends State<TransactionForm> {
     }
   }
 
+  Future<void> _updateTransaction(Transaction oldTx) async {
+    final amount = NumberUtils.parseAmount(_amountController.text);
+    final fee = NumberUtils.parseAmount(_transferFeeController.text);
+
+    final transaction = Transaction.create(
+      amount: amount,
+      fee: fee,
+      date: _selectedDate,
+      note: _descriptionController.text.trim(),
+      type: _selectedTransactionType!,
+      flowType: _selectedFlowType,
+      source: _selectedSource!,
+      sourceId: _selectedSource!.id,
+      destination: _selectedDestination,
+      destinationId: _selectedDestination?.id,
+    );
+
+    if (oldTx.flowType != transaction.flowType) {
+      throw Exception("Flow type cannot be changed");
+    }
+
+    transaction.id = oldTx.id;
+    await isar.writeTxn(() async {
+      await TransactionService(isar).reverse(oldTx);
+      await TransactionService(isar).apply(transaction);
+      await isar.transactions.put(transaction);
+    });
+    if (mounted) Navigator.pop(context);
+  }
+
   @override
   Widget build(BuildContext context) {
     final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
@@ -219,7 +254,11 @@ class _WalletFormState extends State<TransactionForm> {
     return Scaffold(
       backgroundColor: LynxTheme.background,
       resizeToAvoidBottomInset: true,
-      appBar: CustomAppBar(title: "Add Transaction"),
+      appBar: CustomAppBar(
+        title: widget.transactionId == null
+            ? "Add Transaction"
+            : "Transaction Details",
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -235,6 +274,7 @@ class _WalletFormState extends State<TransactionForm> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         CustomDropdownField<FlowType>(
+                          enabled: _transaction == null,
                           label: "Transaction Type",
                           hint: "Select wallet type",
                           value: _selectedFlowType,
@@ -311,8 +351,19 @@ class _WalletFormState extends State<TransactionForm> {
                             ),
                             CurrencyInputFormatter(),
                           ],
-                          validator: (val) =>
-                              val!.isEmpty ? "Please enter a amount" : null,
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty) {
+                              return "Please enter an amount";
+                            }
+
+                            final amount = NumberUtils.parseAmount(val);
+
+                            if (amount <= 0) {
+                              return "Amount must be greater than 0";
+                            }
+
+                            return null;
+                          },
                         ),
                         if (_selectedFlowType == FlowType.transfer) ...[
                           const SizedBox(height: 16),
@@ -372,8 +423,8 @@ class _WalletFormState extends State<TransactionForm> {
                             key: ValueKey(
                               'destination_${_selectedDestination?.id ?? 'none'}',
                             ),
-                            label: "Destination wallet",
-                            hint: "Select destination wallet",
+                            label: "Destination account",
+                            hint: "Select destination account",
                             value: _selectedDestination,
                             items:
                                 filterSources(
@@ -440,52 +491,154 @@ class _WalletFormState extends State<TransactionForm> {
                   ),
                 ),
                 if (!isKeyboardOpen) ...[
-                  Container(
-                    width: double.infinity,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      boxShadow: [
-                        BoxShadow(
-                          color: LynxTheme.primary.withValues(alpha: 0.3),
-                          blurRadius: 15,
-                          offset: const Offset(0, 5),
-                        ),
-                      ],
-                    ),
-                    child: FilledButton(
-                      onPressed: () {
-                        if (_formKey.currentState!.validate()) {
-                          _createTransaction();
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: LynxTheme.primary,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        elevation: 0,
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          HugeIcon(
-                            icon: HugeIcons.strokeRoundedSent,
-                            color: Colors.white,
-                            size: 20,
+                  Column(
+                    children: [
+                      if (_transaction != null) ...[
+                        Container(
+                          width: double.infinity,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            boxShadow: [
+                              BoxShadow(
+                                color: LynxTheme.primary.withValues(alpha: 0.3),
+                                blurRadius: 15,
+                                offset: const Offset(0, 5),
+                              ),
+                            ],
                           ),
-                          SizedBox(width: 8),
-                          Text(
-                            "Create Transaction",
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.5,
+                          child: FilledButton(
+                            onPressed: () {
+                              _updateTransaction(_transaction!);
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: LynxTheme.primary,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              elevation: 0,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                HugeIcon(
+                                  icon: HugeIcons.strokeRoundedSent,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  "Update Transaction",
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
-                    ),
+                        ),
+                        SizedBox(height: 14),
+                        Container(
+                          width: double.infinity,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            boxShadow: [
+                              BoxShadow(
+                                color: LynxTheme.error.withValues(alpha: 0.15),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: OutlinedButton(
+                            onPressed: () {
+                              _deleteTransaction(_transaction!);
+                            },
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: LynxTheme.error,
+                              side: const BorderSide(
+                                color: LynxTheme.error,
+                                width: 1.5,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.delete_outline,
+                                  color: LynxTheme.error,
+                                  size: 20,
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  "Delete Transaction",
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.5,
+                                    color: LynxTheme.error,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                      if (_transaction == null) ...[
+                        Container(
+                          width: double.infinity,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            boxShadow: [
+                              BoxShadow(
+                                color: LynxTheme.primary.withValues(alpha: 0.3),
+                                blurRadius: 15,
+                                offset: const Offset(0, 5),
+                              ),
+                            ],
+                          ),
+                          child: FilledButton(
+                            onPressed: () {
+                              if (_formKey.currentState!.validate()) {
+                                _createTransaction();
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: LynxTheme.primary,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              elevation: 0,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                HugeIcon(
+                                  icon: HugeIcons.strokeRoundedSent,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  "Create Transaction",
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ],
               ],

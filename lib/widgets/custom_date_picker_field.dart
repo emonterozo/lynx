@@ -3,7 +3,7 @@ import 'package:hugeicons/hugeicons.dart';
 import '../core/theme.dart';
 
 class CustomDatePickerField extends StatelessWidget {
-  final String label;
+  final String? label;
   final String hint;
   final DateTime? value;
   final ValueChanged<DateTime?> onChanged;
@@ -11,10 +11,11 @@ class CustomDatePickerField extends StatelessWidget {
   final DateTime? firstDate;
   final DateTime? lastDate;
   final bool includeTime;
+  final bool showClearButton;
 
   const CustomDatePickerField({
     super.key,
-    required this.label,
+    this.label,
     required this.hint,
     required this.value,
     required this.onChanged,
@@ -22,6 +23,7 @@ class CustomDatePickerField extends StatelessWidget {
     this.firstDate,
     this.lastDate,
     this.includeTime = false,
+    this.showClearButton = false,
   });
 
   String _formatDateTime(DateTime date) {
@@ -54,7 +56,7 @@ class CustomDatePickerField extends StatelessWidget {
     return '$month $day, ${date.year} • $hour:$minute $period';
   }
 
-  InputDecoration _inputDecoration() {
+  InputDecoration _inputDecoration(BuildContext context) {
     return InputDecoration(
       hintText: hint,
       hintStyle: const TextStyle(
@@ -64,24 +66,35 @@ class CustomDatePickerField extends StatelessWidget {
       ),
       filled: true,
       fillColor: LynxTheme.card,
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 14,
-      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       suffixIcon: Padding(
         padding: const EdgeInsets.only(right: 16),
-        child: HugeIcon(
-          icon: includeTime
-              ? HugeIcons.strokeRoundedClock01
-              : HugeIcons.strokeRoundedCalendar01,
-          color: LynxTheme.mutedForeground,
-          size: 20,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            if (value != null && showClearButton == true) ...[
+              GestureDetector(
+                onTap: () => onChanged(null),
+                child: const HugeIcon(
+                  icon: HugeIcons.strokeRoundedCalendarRemove01,
+                  size: 20,
+                  color: LynxTheme.error,
+                ),
+              ),
+              const SizedBox(width: 10),
+            ],
+            HugeIcon(
+              icon: includeTime
+                  ? HugeIcons.strokeRoundedClock01
+                  : HugeIcons.strokeRoundedCalendar01,
+              color: LynxTheme.mutedForeground,
+              size: 20,
+            ),
+          ],
         ),
       ),
-      suffixIconConstraints: const BoxConstraints(
-        minWidth: 0,
-        minHeight: 0,
-      ),
+      suffixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
         borderSide: BorderSide.none,
@@ -92,10 +105,7 @@ class CustomDatePickerField extends StatelessWidget {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(
-          color: LynxTheme.primary,
-          width: 1.3,
-        ),
+        borderSide: const BorderSide(color: LynxTheme.primary, width: 1.3),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
@@ -103,10 +113,7 @@ class CustomDatePickerField extends StatelessWidget {
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(
-          color: LynxTheme.primary,
-          width: 1.3,
-        ),
+        borderSide: const BorderSide(color: LynxTheme.primary, width: 1.3),
       ),
       errorMaxLines: 2,
       errorStyle: const TextStyle(
@@ -146,7 +153,18 @@ class CustomDatePickerField extends StatelessWidget {
 
     if (pickedDate == null) return;
 
-    DateTime selectedDateTime = pickedDate;
+    DateTime selectedDateTime = includeTime
+        ? pickedDate
+        : DateTime(
+            pickedDate.year,
+            pickedDate.month,
+            pickedDate.day,
+            now.hour,
+            now.minute,
+            now.second,
+            now.millisecond,
+            now.microsecond,
+          );
 
     if (includeTime) {
       final pickedTime = await showTimePicker(
@@ -176,15 +194,17 @@ class CustomDatePickerField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: LynxTheme.mutedForeground,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
+        if (label != null) ...[
+          Text(
+            label!,
+            style: const TextStyle(
+              color: LynxTheme.mutedForeground,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
           ),
-        ),
-        const SizedBox(height: 6),
+          const SizedBox(height: 6),
+        ],
         FormField<DateTime>(
           initialValue: value,
           validator: validator,
@@ -192,9 +212,9 @@ class CustomDatePickerField extends StatelessWidget {
             return GestureDetector(
               onTap: () => _showPicker(context, state),
               child: InputDecorator(
-                decoration: _inputDecoration().copyWith(
-                  errorText: state.errorText,
-                ),
+                decoration: _inputDecoration(
+                  context,
+                ).copyWith(errorText: state.errorText),
                 isEmpty: value == null,
                 child: value != null
                     ? Text(

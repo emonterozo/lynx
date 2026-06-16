@@ -2,6 +2,42 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 class CurrencyInputFormatter extends TextInputFormatter {
+  static String formatValue(num value) {
+    final formatter = NumberFormat('#,##0.##', 'en_US');
+    return formatter.format(value);
+  }
+
+  static String formatText(String text) {
+    if (text.isEmpty) return '';
+
+    String cleanText = text.replaceAll(',', '');
+
+    List<String> parts = cleanText.split('.');
+    String integerPart = parts[0];
+    String decimalPart = parts.length > 1 ? parts[1] : '';
+
+    final formatter = NumberFormat('#,###', 'en_US');
+    String formattedInteger = '';
+
+    if (integerPart.isNotEmpty) {
+      double? number = double.tryParse(integerPart);
+      if (number != null) {
+        formattedInteger = formatter.format(number);
+      }
+    }
+
+    String finalText = formattedInteger;
+
+    if (cleanText.contains('.')) {
+      if (decimalPart.length > 2) {
+        decimalPart = decimalPart.substring(0, 2);
+      }
+      finalText += '.$decimalPart';
+    }
+
+    return finalText;
+  }
+
   @override
   TextEditingValue formatEditUpdate(
     TextEditingValue oldValue,

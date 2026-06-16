@@ -4,7 +4,9 @@ import 'package:isar/isar.dart';
 import 'package:intl/intl.dart';
 import 'package:lynx/data/models/budget.dart';
 import 'package:lynx/data/models/person.dart';
+import 'package:lynx/screens/budget.dart';
 import 'package:lynx/screens/credit_card_form.dart';
+import 'package:lynx/screens/transactions.dart';
 import 'package:lynx/screens/wallet_form.dart';
 import '../core/enums/app_enums.dart';
 import '../core/theme.dart';
@@ -12,17 +14,12 @@ import '../core/utils/number_utils.dart';
 import '../data/models/credit_card.dart';
 import '../data/models/transaction.dart';
 import '../data/models/wallet.dart';
+import '../presentation/models/transaction_with_source.dart';
+import '../widgets/transaction_card.dart';
 import '../widgets/wallet_card.dart';
 import 'budget_form.dart';
 
 final DateFormat dateFormat = DateFormat('EEE, MMM dd');
-
-class TransactionWithSource {
-  final Transaction transaction;
-  final String sourceName;
-
-  TransactionWithSource({required this.transaction, required this.sourceName});
-}
 
 class HomeTab extends StatefulWidget {
   const HomeTab({super.key});
@@ -77,6 +74,28 @@ class _HomeTabState extends State<HomeTab> {
     );
   }
 
+  Future<void> _runBillingCheck() async {
+    final now = DateTime.now();
+
+    final cards = await _isar.creditCards.where().findAll();
+
+    await _isar.writeTxn(() async {
+      for (final card in cards) {
+        if (card.billingCycleDay == now.day) {
+          //will get installment details
+          card.statementBalance = card.balance;
+          await _isar.creditCards.put(card);
+        }
+      }
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _runBillingCheck();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -98,7 +117,7 @@ class _HomeTabState extends State<HomeTab> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _sectionHeader(
-                        "My Wallets",
+                        title: "My Wallets",
                         showViewAll: wallets.length > 4,
                       ),
                       const SizedBox(height: 12),
@@ -164,7 +183,7 @@ class _HomeTabState extends State<HomeTab> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _sectionHeader(
-                        "My Credit Cards",
+                        title: "My Credit Cards",
                         showViewAll: creditCards.length > 4,
                       ),
                       const SizedBox(height: 12),
@@ -231,7 +250,7 @@ class _HomeTabState extends State<HomeTab> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _sectionHeader(
-                            "My Budgets",
+                            title: "My Budgets",
                             showViewAll: budgets.length > 4,
                           ),
                           const SizedBox(height: 12),
@@ -313,8 +332,16 @@ class _HomeTabState extends State<HomeTab> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _sectionHeader(
-                            "Recent Transactions",
+                            title: "Recent Transactions",
                             showViewAll: totalCount > 4,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => Transactions(),
+                                ),
+                              );
+                            },
                           ),
                           const SizedBox(height: 12),
 
@@ -350,8 +377,21 @@ class _HomeTabState extends State<HomeTab> {
                                   itemCount: transactions.length,
                                   separatorBuilder: (_, _) =>
                                       const SizedBox(height: 12),
-                                  itemBuilder: (_, index) =>
-                                      _transactionItem(transactions[index]),
+                                  itemBuilder: (_, index) {
+                                    final transaction =
+                                        transactions[index].transaction;
+                                    final source =
+                                        transactions[index].sourceName;
+                                    return TransactionCard(
+                                      transactionFlowType: transaction.flowType,
+                                      transactionId: transaction.id,
+                                      transactionType: transaction.type,
+                                      transactionNote: transaction.note,
+                                      transactionSource: source,
+                                      amount: transaction.amount,
+                                      date: transaction.date,
+                                    );
+                                  },
                                 ),
                         ],
                       );
@@ -367,7 +407,11 @@ class _HomeTabState extends State<HomeTab> {
     );
   }
 
-  Widget _sectionHeader(String title, {bool showViewAll = false}) {
+  Widget _sectionHeader({
+    required String title,
+    bool showViewAll = false,
+    VoidCallback? onTap,
+  }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -377,9 +421,9 @@ class _HomeTabState extends State<HomeTab> {
         ),
         if (showViewAll)
           GestureDetector(
-            onTap: () {},
+            onTap: onTap,
             child: const Text(
-              "View All",
+              'View All',
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -437,7 +481,14 @@ class _HomeTabState extends State<HomeTab> {
       child: Column(
         children: [
           GestureDetector(
-            onTap: isAddButton ? _navigateToBudgetForm : null,
+            onTap: isAddButton
+                ? _navigateToBudgetForm
+                : () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => BudgetScreen()),
+                    );
+                  },
             child: SizedBox(
               height: 70,
               width: 70,
@@ -541,79 +592,6 @@ class _HomeTabState extends State<HomeTab> {
     subLabel: "Budget",
     isAddButton: true,
   );
-
-  Widget _transactionItem(TransactionWithSource transactionWithSource) {
-    final isExpense =
-        transactionWithSource.transaction.flowType == FlowType.expense;
-    final sign = isExpense ? "-" : "+";
-    final color = isExpense ? LynxTheme.error : LynxTheme.success;
-
-    final formattedDate = dateFormat.format(
-      transactionWithSource.transaction.date,
-    );
-
-    final formattedAmount =
-        "$sign₱${NumberUtils.currencyFormatter(transactionWithSource.transaction.amount)}";
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: LynxTheme.card,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          HugeIcon(
-            icon: transactionWithSource.transaction.type.icon,
-            color: LynxTheme.primary,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  transactionWithSource.transaction.note,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  transactionWithSource.sourceName,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: LynxTheme.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            children: [
-              Text(
-                formattedAmount,
-                style: TextStyle(fontWeight: FontWeight.bold, color: color),
-              ),
-              Text(
-                formattedDate,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: LynxTheme.mutedForeground,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _addButton({required bool isWallet}) => GestureDetector(
     onTap: isWallet ? _navigateToWalletForm : _navigateToCreditCardForm,
